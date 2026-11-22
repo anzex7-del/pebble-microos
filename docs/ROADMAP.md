@@ -8,7 +8,7 @@
 - [x] Automated core, profile and preview logic tests
 - [x] GitHub Actions T5 cross-build and artifact packaging workflow
 - [x] GitHub Pages deployment workflow
-- [ ] Full T5 build confirmed green
+- [x] Full T5 build confirmed green ([run 45082490199](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199))
 - [ ] First physical-device smoke test
 
 ## Hardware beta

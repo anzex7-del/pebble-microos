@@ -25,9 +25,13 @@ The board label and Waveshare specification agree. This is not the ESP32-S3-Touc
 - Board configuration: `WAVESHARE_T5AI_TOUCH_AMOLED_1_75`.
 - The source uses vendor board registration and display initialization. It does not invent pin assignments or replace panel initialization sequences.
 
-## What was not possible here
+## Current validation status
 
-The local environment has a C compiler but no configured TuyaOpen cross-toolchain. Network access from the build shell is restricted. Native portable logic was compiled and tested; the full T5 SDK application was not compiled or flashed. A browser policy also prevents local-file visual inspection. Those are open validation steps, not successes.
+The full application successfully cross-compiled and linked in [GitHub Actions run 45082490199](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199) using the pinned SDK and exact board configuration. The run provides `pebble-t5-preview-2` with firmware BIN files, a checksum manifest, the generated profile header and installation notes. The run also provides a build log.
+
+To build your own pet, export a profile from [Pet Studio](https://anzex7-del.github.io/pebble-microos/), then run **Build T5 preview firmware** from Actions in your own fork (or this repository if you have write access), pasting the JSON into `profile_json`. Leave it empty for Milo. GitHub sign-in is required to run workflows and download artifacts. These artifacts are retained for 90 days; rebuild after expiry.
+
+Portable logic and hosted browser smoke checks passed. No physical board has been flashed or tested. Touch, display initialization, save behavior on flash and power handling still require the device acceptance pass below.
 
 ## Build on your Mac
 
@@ -60,7 +64,7 @@ tos.py config choice
 tos.py build
 ```
 
-This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/project-compilation). Treat compiler output as authoritative. Check that LVGL 9 and Montserrat 20/40 are enabled. The package has not yet verified the full toolchain, linkage, runtime memory allocation or board revisions. Keep the full build log and resulting memory report.
+This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/project-compilation). Treat compiler output as authoritative. Check that LVGL 9 and Montserrat 20/40 are enabled. The pinned Linux CI toolchain and linkage have passed. A local macOS cross-build, runtime memory allocation and physical board revisions remain unverified. Keep the full build log and resulting memory report.
 
 ## Physical-device installation — only after a successful build
 
@@ -69,7 +73,7 @@ This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/
 3. Follow the vendor [flashing and logging guide](https://tuyaopen.ai/docs/quick-start/firmware-burning). From the successfully built application directory, use `tos.py flash`, select the proper port, and follow its reset prompts. Use the image produced for this exact T5 configuration. Do not manually choose offsets from ESP32 guides.
 4. Use `tos.py monitor` and confirm the Pebble startup log, display, touch and save status. Record the SDK revision and board revision with the result.
 
-No flash command has been run in this session. No binary is provided because the target build has not passed.
+No flash command has been run in this session. A compiled preview artifact is available from the successful CI run above; it is not a hardware-qualified release.
 
 ## Device acceptance checklist
 

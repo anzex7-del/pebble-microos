@@ -1,12 +1,16 @@
-# Pebble microOS · engineering preview 0.1
+# Pebble microOS · engineering preview 0.2.0-preview.1
 
 A little companion for a round touchscreen: care for a pet, focus together, and play short games. Built for Anz, 23 November 2026. **Pebble is a working title, not a cleared commercial brand.**
 
 ## Start here
 
-Open **Pebble_Preview.html** in a modern browser. No installation, account, API key or internet connection is required. Click the device screen or use the menu beside it. Press Escape to return home. Use the 10-second timer demo to see completion immediately; it deliberately gives no focus reward.
+- [Open Pet Studio](https://anzex7-del.github.io/pebble-microos/) to choose a name, color, eye style and focus duration, then import/export a profile or save a portrait.
+- [Try the interactive microOS preview](https://anzex7-del.github.io/pebble-microos/demo/) to explore pet care, focus sessions, games and tools.
+- [Download compiled T5 preview firmware](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199): open the successful run and download **pebble-t5-preview-2** from Artifacts (GitHub sign-in required). Artifacts expire; use the [build workflow](https://github.com/anzex7-del/pebble-microos/actions/workflows/firmware.yml) for a fresh or personalized build.
 
-The preview is a browser application. It cannot flash or connect to your physical device. The adjacent `firmware/` folder contains a separate native C/LVGL application targeting TuyaOpen. **There is no compiled or hardware-tested firmware binary in this release.**
+For an offline browser demo, clone or download this repository and run `python3 tools/package.py`. Open the generated **Pebble_Preview.html** in a modern browser. No installation, account, API key or internet connection is required for that demo. Click the device screen or use the menu beside it. Press Escape to return home. Use the 10-second timer demo to see completion immediately; it deliberately gives no focus reward.
+
+The preview is a browser application. It cannot flash or connect to your physical device. The adjacent `firmware/` folder contains a separate native C/LVGL application targeting TuyaOpen. **The T5 firmware successfully cross-compiled in GitHub Actions on 23 November 2026 (Asia/Tbilisi). Physical-device testing is still pending.** Pet Studio exports build-time defaults; it does not synchronize with the simulator or your device.
 
 ## Your hardware
 
@@ -21,7 +25,7 @@ Read [hardware and build instructions](docs/HARDWARE_AND_BUILD.md) before any ph
 | Pet care, food/joy/energy, sleep/wake | Implemented | Implemented; board validation pending |
 | Personality colors | Four | Four |
 | Visible growth stages | Sprout, buddy, bloom | Level counter; growth artwork pending |
-| Focus and countdown | 5/25/50 minutes; 10-second demo | 5/25/50 minutes; 1-minute timer |
+| Focus and countdown | 5/25/50 minutes; 10-second demo | Profile default (5–60 minutes), presets and 1-minute timer |
 | Timer pause, resume, completion | Implemented | Implemented; awake uptime only |
 | Tic-tac-toe vs unbeatable pet | Implemented | Implemented |
 | Local two-player tic-tac-toe | Implemented | Pending |
@@ -31,7 +35,7 @@ Read [hardware and build instructions](docs/HARDWARE_AND_BUILD.md) before any ph
 | Clock | Uses computer clock | RTC integration pending |
 | Breathing guide | Animated 4/4/6 rhythm | Text 4/4/6 rhythm |
 | Dice / coin | Both | Dice only |
-| Pet rename | Implemented | Pending |
+| Pet rename / eye style | Rename in simulator; three eye styles in Studio | Build-time profile; runtime rename pending |
 | Portrait PNG export | Implemented | Phone/USB companion bridge pending |
 | Persistence | Browser local storage | Versioned CRC save + Tuya KV adapter, untested on flash |
 | Screen rest | Dark preview | Black screen only; not deep sleep |
@@ -43,6 +47,9 @@ Browser and native UI are separate implementations. Matching core behaviors have
 
 - `Pebble_Preview.html`: portable, self-contained browser demo.
 - `preview/`: editable HTML, CSS and JavaScript sources.
+- `web/`: Pet Studio; `tools/build_web.py` assembles the GitHub Pages site.
+- `profiles/default.json`: default build-time pet profile.
+- `.github/workflows/`: automatic checks, Pages deployment and T5 firmware builds.
 - `firmware/`: native application, TuyaOpen configuration, reusable C logic.
 - `tests/`: core tests and browser logic tests.
 - `docs/PRODUCT_BLUEPRINT.md`: product, scope, launch experiments, economics and roadmap.
@@ -59,7 +66,7 @@ sh tools/test.sh
 sh tools/test-preview-macos.sh
 ```
 
-The core tests use AddressSanitizer and UndefinedBehaviorSanitizer. The preview tests use the system JavaScriptCore engine and a mock DOM; they do **not** prove visual layout, browser download behavior, or hardware operation. A real browser/device acceptance pass is still required.
+The core tests use AddressSanitizer and UndefinedBehaviorSanitizer. The preview tests use the system JavaScriptCore engine and a mock DOM; they do **not** prove visual layout, browser download behavior, or hardware operation. The hosted site also has a browser smoke test recorded in [VALIDATION.md](docs/VALIDATION.md). Physical-device acceptance is still required.
 
 ## Design principles
 
