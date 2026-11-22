@@ -31,7 +31,7 @@ def header(p):
 #define PB_DEFAULT_THEME {THEMES.index(p["theme"])}
 #define PB_EYE_STYLE {EYES.index(p["eyes"])}
 #define PB_FOCUS_MINUTES {p["focusMinutes"]}
-#define PB_FIRMWARE_VERSION "0.2.0-preview.1"
+#define PB_FIRMWARE_VERSION "0.3.0-preview.1"
 #endif
 '''
 
