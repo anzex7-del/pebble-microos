@@ -23,6 +23,8 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    permissions:
+      contents: write
     env:
       OPEN_COUNTRY_CODE: Other
       TUYAOPEN_CN_DOWNLOAD: '0'
@@ -69,7 +71,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, json, shutil
+          import hashlib, json, os, shutil, subprocess
           root = Path('vendor/TuyaOpen/examples/pebble_microos')
           files = list((root / 'dist').rglob('*.bin'))
           if not files:
@@ -84,9 +86,22 @@ jobs:
                   name = str(index) + '-' + name
               output = target / name; shutil.copy2(source, output)
               manifest.append({'file':name, 'size':output.stat().st_size, 'sha256':hashlib.sha256(output.read_bytes()).hexdigest()})
-          (target / 'manifest.json').write_text(json.dumps({'version':'0.2.0-preview.1', 'board':'WAVESHARE_T5AI_TOUCH_AMOLED_1_75', 'hardwareTested':False, 'files':manifest}, indent=2))
+          (target / 'manifest.json').write_text(json.dumps({'version':'0.2.0-preview.1', 'sourceCommit':os.environ['GITHUB_SHA'], 'buildRun':os.environ['GITHUB_RUN_ID'], 'sdkCommit':'cc6b7cdc35f0168186859c02b4979e9580b3a760', 'board':'WAVESHARE_T5AI_TOUCH_AMOLED_1_75', 'hardwareTested':False, 'files':manifest}, indent=2))
           shutil.copy2('firmware/include/pebble_profile.h', target / 'pebble_profile.h')
           shutil.copy2('docs/HARDWARE_AND_BUILD.md', target / 'INSTALL.md')
+          shutil.copy2('THIRD_PARTY_NOTICES.md', target / 'THIRD_PARTY_NOTICES.md')
+          sdk = Path('vendor/TuyaOpen')
+          for directory, folders, names in os.walk(sdk):
+              folders[:] = [name for name in folders if name not in {'.git', '.build', 'build', '.cache', '.venv'}]
+              for name in names:
+                  source = Path(directory) / name
+                  if name.upper().startswith(('LICENSE', 'COPYING', 'NOTICE')) and source.is_file() and source.stat().st_size < 1000000:
+                      destination = target / 'upstream-notices' / source.relative_to(sdk)
+                      destination.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(source, destination)
+          (target / 'upstream-revisions.txt').write_text(subprocess.check_output(['git','-C',str(sdk),'submodule','status','--recursive'],text=True))
+          shutil.make_archive('build/pebble-t5-preview', 'zip', target)
+          Path('build/release-notes.md').write_text('Engineering preview for Waveshare T5-E1-Touch-AMOLED-1.75. Full ARM build and automated tests passed; physical-device testing is pending.\n\nIncludes pet care, focus timer, tic-tac-toe, memory, spark chase, stopwatch, breathing and dice. Pet Studio exports name, color, eye style and focus duration for custom firmware builds.\n\nThe ZIP contains firmware images, SHA-256 manifest, build provenance, installation instructions and upstream notices. Use the T5 QIO image with the official T5 tool; do not use ESP32 tools. The SDK filename suffix 1.0.0 is its packaging default; application version is recorded in the manifest.\n\nTimer runs while powered and awake. Battery measurement, RTC restore, hardware sleep, sound and USB/BLE profile synchronization are not implemented. No device was flashed during development.\n\n[Pet Studio](https://anzex7-del.github.io/pebble-microos/) · [Installation guide](https://github.com/anzex7-del/pebble-microos/blob/main/docs/HARDWARE_AND_BUILD.md)\n')
           PY
       - name: Upload compiled preview
         uses: actions/upload-artifact@v4
@@ -95,6 +110,12 @@ jobs:
           path: build/firmware/
           if-no-files-found: error
           retention-days: 90
+      - name: Publish default preview release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "preview-build-${GITHUB_RUN_NUMBER}" build/pebble-t5-preview.zip --target "$GITHUB_SHA" --title "Pebble 0.2 — T5 preview build ${GITHUB_RUN_NUMBER}" --prerelease --notes-file build/release-notes.md
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4

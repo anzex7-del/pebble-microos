@@ -4,13 +4,25 @@ A little companion for a round touchscreen: care for a pet, focus together, and 
 
 ## Start here
 
-- [Open Pet Studio](https://anzex7-del.github.io/pebble-microos/) to choose a name, color, eye style and focus duration, then import/export a profile or save a portrait.
-- [Try the interactive microOS preview](https://anzex7-del.github.io/pebble-microos/demo/) to explore pet care, focus sessions, games and tools.
-- [Download compiled T5 preview firmware](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199): open the successful run and download **pebble-t5-preview-2** from Artifacts (GitHub sign-in required). Artifacts expire; use the [build workflow](https://github.com/anzex7-del/pebble-microos/actions/workflows/firmware.yml) for a fresh or personalized build.
+- **[Customize your pet](https://anzex7-del.github.io/pebble-microos/)** — name, color, eyes, focus duration, profile JSON and portrait export.
+- **[Try microOS in your browser](https://anzex7-del.github.io/pebble-microos/demo/)** — click the round screen or the menu beside it. Escape returns home.
+- **[Download T5 preview builds](https://github.com/anzex7-del/pebble-microos/releases)** — compiled firmware with checksums and installation instructions.
+- **[Build verification](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199)** — the first successful full T5 ARM build. Its `pebble-t5-preview-2` artifact is also downloadable while retained by GitHub; artifact downloads require sign-in.
 
-For an offline browser demo, clone or download this repository and run `python3 tools/package.py`. Open the generated **Pebble_Preview.html** in a modern browser. No installation, account, API key or internet connection is required for that demo. Click the device screen or use the menu beside it. Press Escape to return home. Use the 10-second timer demo to see completion immediately; it deliberately gives no focus reward.
+**Status:** full target compilation and automated engine/preview/profile tests pass. Pet Studio is deployed and its editing controls were checked in a real browser. The firmware has **not been flashed or tested on a physical device**. This is an engineering preview, not a finished consumer release.
 
-The preview is a browser application. It cannot flash or connect to your physical device. The adjacent `firmware/` folder contains a separate native C/LVGL application targeting TuyaOpen. **The T5 firmware successfully cross-compiled in GitHub Actions on 23 November 2026 (Asia/Tbilisi). Physical-device testing is still pending.** Pet Studio exports build-time defaults; it does not synchronize with the simulator or your device.
+The browser demo and native C/LVGL firmware are separate implementations. The website cannot currently connect to or flash your device. The 10-second browser timer demo intentionally gives no focus reward.
+
+## Customize and install
+
+1. Open Pet Studio, choose a name (up to 16 English letters/numbers with internal spaces, underscores or hyphens), one of four colors, an eye style, and a 5–60 minute focus preset.
+2. Download the profile, or use **Your device → Copy profile JSON**. **Show profile JSON** is available if clipboard access is unavailable.
+3. Repository owners can open **Actions → Build T5 preview firmware → Run workflow**. Other users first fork the repository and enable Actions. Paste the JSON in `profile_json`; leaving it blank builds Milo.
+4. Wait for a successful build and download its firmware artifact. Follow [the installation guide](docs/HARDWARE_AND_BUILD.md).
+
+Customization is applied when firmware is compiled. It is not live USB/BLE synchronization. A previously saved on-device color takes precedence over the compiled default; select the new color in device Settings after updating. Each site's demo and studio keep their own browser-local state; editing one does not synchronize the other.
+
+For an offline demo, run `python3 tools/package.py` and open the generated `Pebble_Preview.html`. It works without an account or network connection.
 
 ## Your hardware
 
@@ -25,7 +37,7 @@ Read [hardware and build instructions](docs/HARDWARE_AND_BUILD.md) before any ph
 | Pet care, food/joy/energy, sleep/wake | Implemented | Implemented; board validation pending |
 | Personality colors | Four | Four |
 | Visible growth stages | Sprout, buddy, bloom | Level counter; growth artwork pending |
-| Focus and countdown | 5/25/50 minutes; 10-second demo | Profile default (5–60 minutes), presets and 1-minute timer |
+| Focus and countdown | 5/25/50 minutes; 10-second demo | 5/custom/50 minutes; 1-minute timer |
 | Timer pause, resume, completion | Implemented | Implemented; awake uptime only |
 | Tic-tac-toe vs unbeatable pet | Implemented | Implemented |
 | Local two-player tic-tac-toe | Implemented | Pending |
@@ -35,7 +47,7 @@ Read [hardware and build instructions](docs/HARDWARE_AND_BUILD.md) before any ph
 | Clock | Uses computer clock | RTC integration pending |
 | Breathing guide | Animated 4/4/6 rhythm | Text 4/4/6 rhythm |
 | Dice / coin | Both | Dice only |
-| Pet rename / eye style | Rename in simulator; three eye styles in Studio | Build-time profile; runtime rename pending |
+| Pet name / eye style | Demo rename; Studio name and three eye styles | Compiled from the Studio profile |
 | Portrait PNG export | Implemented | Phone/USB companion bridge pending |
 | Persistence | Browser local storage | Versioned CRC save + Tuya KV adapter, untested on flash |
 | Screen rest | Dark preview | Black screen only; not deep sleep |
@@ -45,11 +57,11 @@ Browser and native UI are separate implementations. Matching core behaviors have
 
 ## Project layout
 
-- `Pebble_Preview.html`: portable, self-contained browser demo.
+- `web/`: public Pet Studio and validated profile schema.
+- `profiles/`: default pet design.
+- `.github/`: automatic tests, firmware builds, Pages publishing and issue templates.
+- `Pebble_Preview.html`: generated portable demo (`python3 tools/package.py`).
 - `preview/`: editable HTML, CSS and JavaScript sources.
-- `web/`: Pet Studio; `tools/build_web.py` assembles the GitHub Pages site.
-- `profiles/default.json`: default build-time pet profile.
-- `.github/workflows/`: automatic checks, Pages deployment and T5 firmware builds.
 - `firmware/`: native application, TuyaOpen configuration, reusable C logic.
 - `tests/`: core tests and browser logic tests.
 - `docs/PRODUCT_BLUEPRINT.md`: product, scope, launch experiments, economics and roadmap.
@@ -64,9 +76,10 @@ On macOS with Apple Command Line Tools installed:
 ```sh
 sh tools/test.sh
 sh tools/test-preview-macos.sh
+python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-The core tests use AddressSanitizer and UndefinedBehaviorSanitizer. The preview tests use the system JavaScriptCore engine and a mock DOM; they do **not** prove visual layout, browser download behavior, or hardware operation. The hosted site also has a browser smoke test recorded in [VALIDATION.md](docs/VALIDATION.md). Physical-device acceptance is still required.
+The core tests use AddressSanitizer and UndefinedBehaviorSanitizer. The preview tests use the system JavaScriptCore engine and a mock DOM; they do **not** prove visual layout, browser download behavior, or hardware operation. Real-browser editing checks are recorded in [VALIDATION.md](docs/VALIDATION.md); physical-device acceptance remains open.
 
 ## Design principles
 
@@ -76,4 +89,8 @@ The native timer is intentionally session-only until RTC restore and wake behavi
 
 ## Sources and reuse
 
-Pip-KeyPet was reviewed for product and architecture inspiration, not copied into this source. New pet artwork is procedural. Upstream firmware binaries, fonts and sprites are not redistributed. TuyaOpen and LVGL are external dependencies with their own licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Pip-KeyPet was reviewed for product and architecture inspiration, not copied into this source. New pet artwork is procedural. No Pip firmware, fonts or sprites are included. Compiled T5 releases contain TuyaOpen/LVGL dependencies and include collected upstream notice files with their own licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Future updates
+
+Use [Issues](https://github.com/anzex7-del/pebble-microos/issues/new/choose) for bugs and feature ideas. Changes go through branches and pull requests with automated checks. Pushes to `main` redeploy changed web files; firmware changes build the exact T5 target and publish a numbered engineering prerelease. Custom workflow builds remain Actions artifacts. See [CONTRIBUTING.md](CONTRIBUTING.md), [the roadmap](docs/ROADMAP.md), and [the product blueprint](docs/PRODUCT_BLUEPRINT.md).

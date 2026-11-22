@@ -25,13 +25,15 @@ The board label and Waveshare specification agree. This is not the ESP32-S3-Touc
 - Board configuration: `WAVESHARE_T5AI_TOUCH_AMOLED_1_75`.
 - The source uses vendor board registration and display initialization. It does not invent pin assignments or replace panel initialization sequences.
 
-## Current validation status
+## Download a compiled preview
 
-The full application successfully cross-compiled and linked in [GitHub Actions run 45082490199](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199) using the pinned SDK and exact board configuration. The run provides `pebble-t5-preview-2` with firmware BIN files, a checksum manifest, the generated profile header and installation notes. The run also provides a build log.
+The full T5 application compiled and linked successfully in [GitHub Actions build 2](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199), source commit `8161f34b6f039f1e856c80cfb8431d101a8daec4`. New default builds are published as [numbered prereleases](https://github.com/anzex7-del/pebble-microos/releases).
 
-To build your own pet, export a profile from [Pet Studio](https://anzex7-del.github.io/pebble-microos/), then run **Build T5 preview firmware** from Actions in your own fork (or this repository if you have write access), pasting the JSON into `profile_json`. Leave it empty for Milo. GitHub sign-in is required to run workflows and download artifacts. These artifacts are retained for 90 days; rebuild after expiry.
+Download `pebble-t5-preview.zip` from a successful prerelease and extract it. Read `manifest.json` for the exact board, source commit and SHA-256 checksums. The verified SDK output names its serial-flashing image **`pebble_microos_QIO_1.0.0.bin`**. The `1.0.0` filename suffix is the SDK packaging default; this application's preview version is in the manifest. Do not substitute an OTA image for the QIO serial image.
 
-Portable logic and hosted browser smoke checks passed. No physical board has been flashed or tested. Touch, display initialization, save behavior on flash and power handling still require the device acceptance pass below.
+Build 2 is also available as the `pebble-t5-preview-2` Actions artifact (GitHub sign-in required). Its bundled instructions predate the successful build; use this current guide. Physical-device behavior is unverified: no firmware was flashed during development.
+
+For a custom pet, follow the Studio workflow in [README.md](../README.md). Custom builds are downloaded from the completed workflow's artifacts; they are not automatically published as public releases.
 
 ## Build on your Mac
 
@@ -47,7 +49,7 @@ git submodule update --init --recursive
 tos.py check
 ```
 
-3. From the extracted Pebble package, copy the native application into the SDK using the included staging script. Replace the example path with your actual SDK path:
+3. Clone this repository. Optionally run `python3 tools/apply_profile.py /absolute/path/to/pebble-pet-profile.json` (see `--help` for arguments), then copy the native application into the SDK using the included staging script. Replace the example path with your actual SDK path:
 
 ```sh
 python3 tools/stage_tuya.py /absolute/path/to/TuyaOpen
@@ -64,16 +66,16 @@ tos.py config choice
 tos.py build
 ```
 
-This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/project-compilation). Treat compiler output as authoritative. Check that LVGL 9 and Montserrat 20/40 are enabled. The pinned Linux CI toolchain and linkage have passed. A local macOS cross-build, runtime memory allocation and physical board revisions remain unverified. Keep the full build log and resulting memory report.
+This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/project-compilation). Treat compiler output as authoritative. Check that LVGL 9 and Montserrat 20/40 are enabled. The full cross-toolchain and linkage passed in Linux CI. Runtime memory behavior and physical board revisions still require device validation. Keep the full build log and resulting memory report.
 
 ## Physical-device installation — only after a successful build
 
 1. Check the exact printed model and revision. Keep the Waveshare factory image and recovery instructions available. Preserve device-specific calibration/authorization data; do not run a blanket full-chip erase. If the official tool supports a full readback for your board, preserve it before writing.
 2. Connect through a USB data cable. Close serial-monitor applications that hold the ports. Confirm that your Mac sees the board; use Waveshare's recommended driver only if required for this board revision.
-3. Follow the vendor [flashing and logging guide](https://tuyaopen.ai/docs/quick-start/firmware-burning). From the successfully built application directory, use `tos.py flash`, select the proper port, and follow its reset prompts. Use the image produced for this exact T5 configuration. Do not manually choose offsets from ESP32 guides.
+3. For a downloaded QIO binary, use the official T5 flashing tool described in the vendor [flashing and logging guide](https://tuyaopen.ai/docs/quick-start/firmware-burning). Select the extracted QIO binary for this board and follow the tool’s reset prompts. Alternatively, after building the SDK locally, run `tos.py flash` from the application directory; the SDK selects its build output. Use `tos.py flash --help` for available options rather than guessing file arguments. Use the image produced for this exact T5 configuration. Do not manually choose offsets from ESP32 guides.
 4. Use `tos.py monitor` and confirm the Pebble startup log, display, touch and save status. Record the SDK revision and board revision with the result.
 
-No flash command has been run in this session. A compiled preview artifact is available from the successful CI run above; it is not a hardware-qualified release.
+The supplied binary is build-tested, not hardware-tested. No flash command has been run in this session.
 
 ## Device acceptance checklist
 
