@@ -2,7 +2,7 @@
 const PebbleProfile = (() => {
   const themes = Object.freeze(['moss', 'sky', 'peach', 'lilac']);
   const eyes = Object.freeze(['round', 'sleepy', 'pixel']);
-  const colors = Object.freeze({moss:'#c7f568', sky:'#8fcfff', peach:'#ffb7a4', lilac:'#c4b5ff'});
+  const colors = Object.freeze({moss:'#bfe6a0', sky:'#a4d6f2', peach:'#fac6b1', lilac:'#d0bbf3'});
   const defaultProfile = () => ({schemaVersion:1, name:'Milo', theme:'moss', eyes:'round', focusMinutes:25});
   function validate(p) {
     if (!p || typeof p !== 'object' || Array.isArray(p) || Object.keys(p).sort().join(',') !== 'eyes,focusMinutes,name,schemaVersion,theme') throw new Error('This is not a Pebble pet profile.');

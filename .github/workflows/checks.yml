@@ -18,3 +18,4 @@ jobs:
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
       - run: node tests/run-browser-tests.cjs
       - run: node tests/profile-web-test.cjs
+      - run: node tests/companion-test.cjs

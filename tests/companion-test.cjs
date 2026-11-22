@@ -1,0 +1,28 @@
+'use strict';
+const assert=require('node:assert/strict');
+global.PebbleProfile=require('../web/profile.js');
+const link=require('../web/companion.js');
+assert.deepEqual(link.profileCommands(PebbleProfile.defaultProfile()),['NMilo','C0','E0','F25']);
+assert.throws(()=>link.profileCommands({...PebbleProfile.defaultProfile(),name:'<script>'}));
+assert.deepEqual(link.clockCommands({getTime:()=>1704067200000,getTimezoneOffset:()=>-240}),['Z240','T1704067200']);
+assert.throws(()=>link.clockCommands(new Date('bad')));
+assert.throws(()=>link.clockCommands(new Date('2000-01-01')));
+(async()=>{
+  const encoder=new TextEncoder(), decoder=new TextDecoder();
+  let reply='OK:V', device, requests=[], writes=[], failures=false, stale=false;
+  const writer={properties:{write:true},writeValueWithResponse:async data=>{const s=decoder.decode(data);writes.push(s);if(!stale)reply=failures?'ERR!':'OK:'+s;}};
+  const reader={readValue:async()=>new DataView(encoder.encode(reply).buffer)};
+  const service={getCharacteristic:async id=>{assert.ok([link.writeId,link.readId].includes(id));return id===link.writeId?writer:reader;}};
+  device={name:'Pebble',addEventListener(){},removeEventListener(){},gatt:{connected:false,connect:async()=>{device.gatt.connected=true;return {getPrimaryService:async id=>{assert.equal(id,0xfd50);return service;}};},disconnect:()=>{device.gatt.connected=false;}}};
+  const client=link.createClient({requestDevice:async opts=>{requests.push(opts);return device;}},()=>{},{delay:async()=>{}});
+  await assert.rejects(()=>client.send(['P']),/Connect/);
+  await client.connect();assert.equal(client.connected(),true);assert.equal(requests[0].filters[0].namePrefix,'Pebble');
+  await client.send(link.profileCommands(PebbleProfile.defaultProfile()));assert.deepEqual(writes,['NMilo','C0','E0','F25']);
+  // Echoed values, not just a successful transport write, confirm application.
+  stale=true; await assert.rejects(()=>client.send(['F50']),/0 of 1 settings confirmed/);stale=false;
+  failures=true;await assert.rejects(()=>client.send(['C2']),/rejected/);failures=false;
+  const previous=writes.length;await assert.rejects(()=>client.send(['P','N'+'x'.repeat(30)]),/Invalid/);assert.equal(writes.length,previous);
+  client.disconnect();assert.equal(client.connected(),false);
+  await assert.rejects(()=>link.createClient(null).connect(),/Chrome or Edge/);
+  console.log('PASS: BLE settings encoding, GATT handshake, acknowledgments, rejection, timeout and disconnect');
+})().catch(error=>{console.error(error);process.exitCode=1;});

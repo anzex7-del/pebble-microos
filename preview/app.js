@@ -2,7 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('display'), ctx=canvas.getContext('2d');
 const STORE='pebble.microos.v1';
-const palette=['#c7f568','#8fcfff','#ffb7a4','#c4b5ff'];
+const palette=['#bfe6a0','#a4d6f2','#fac6b1','#d0bbf3'];
 const defaults=()=>({version:1,name:'Milo',food:80,joy:80,energy:90,xp:0,focuses:0,games:0,theme:0,sleeping:false,finish:'moss',savedAt:Date.now(),timer:{remaining:0,duration:0,running:false,complete:false,rewarded:false}});
 const clamp=n=>Math.max(0,Math.min(100,n));
 let state=defaults(), storageAvailable=true;
@@ -45,22 +45,37 @@ function button(label,x,y,w,h,fn,primary=false,id=label){rect(x,y,w,h,18,primary
 function back(p='home'){button('‹  Back',168,376,130,43,()=>go(p));}
 function head(title,sub=''){text(title.toUpperCase(),233,65,17,'#d5e3cb', 'center',600);if(sub)text(sub,233,93,13,'#85967a');}
 function timerString(ms){const s=Math.ceil(ms/1000);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
-function pet(cx=233,cy=207,scale=1,now=performance.now()){
-  ctx.save();ctx.translate(cx,cy);ctx.scale(scale,scale);
-  const bob=reduced?0:Math.sin(now/1100)*4;ctx.translate(0,bob);
-  const c=palette[state.theme],sleep=state.sleeping,blink=!reduced&&(now%4700>4480),love=mood==='love'&&now<moodUntil;
-  if(state.xp>=100){line(-78,-64,-92,-80,c,7);line(78,-64,92,-80,c,7);circle(-94,-83,9,c);circle(94,-83,9,c);}
-  if(state.xp>=300){text('✦',0,-95,28,c);}
-  for(const x of [-57,57]){
-    if(love&&!sleep){text('♥',x,-18,70,c);}
-    else if(sleep||blink){rect(x-24,-14,48,8,4,c);}
-    else{rect(x-25,-54,50,75,25,c);circle(x-10,-37,7,'#f3ffda');}
-  }
-  if(sleep){text('z',87,-72,27,'#7e9671');text('z',109,-92,18,'#7e9671');}
-  ctx.strokeStyle=c;ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,30,14,0,Math.PI);ctx.stroke();
-  circle(-82,40,8,'#bf947b70');circle(82,40,8,'#bf947b70');
-  if(mood==='yum'&&now<moodUntil){text('✦',-105,-76,22,c);text('✦',103,16,16,c);}
-  ctx.restore();
+function pet(cx=233,cy=207,scale=1,now=performance.now()) {
+  const g=ctx, time=now, color=palette[state.theme], eyes='round', reducedMotion=reduced;
+  const expression=state.sleeping?'sleep':now<moodUntil?mood:'happy';
+    g.save(); g.translate(cx, cy); g.scale(scale, scale);
+    const bob = reducedMotion ? 0 : Math.sin(time / 850) * 2.5;
+    const asleep = expression === 'sleep', loved = expression === 'love';
+    const blink = !reducedMotion && time % 4600 > 4450;
+    g.translate(0, bob + (loved && !reducedMotion ? Math.sin(time / 140) * 2 : 0));
+    function pill(x,y,w,h,r,fill) { g.fillStyle=fill; g.beginPath(); g.roundRect(x,y,w,h,r); g.fill(); }
+    // Soft ears, tiny paws and a cream belly, matching the native pet.
+    pill(-74,-81,37,65,19,color); pill(37,-81,37,65,19,color);
+    pill(-65,-71,19,39,10,'#f6d7cc'); pill(46,-71,19,39,10,'#f6d7cc');
+    pill(-65,51,42,23,13,color); pill(23,51,42,23,13,color);
+    pill(-101,-11,38,45,20,color); pill(63,-11,38,45,20,color);
+    pill(-82,-57,164,118,57,color); pill(-46,14,92,42,22,'#f6f1de');
+    const height=asleep||blink?5:eyes==='sleepy'?15:29;
+    for(const x of [-31,31]) {
+      if(loved && !asleep) {
+        g.save(); g.translate(x,-13); g.scale(.56,.56); g.fillStyle='#23332b';
+        g.beginPath(); g.moveTo(0,20); g.bezierCurveTo(-44,-5,-18,-33,0,-12); g.bezierCurveTo(18,-33,44,-5,0,20); g.fill(); g.restore();
+      } else {
+        pill(x-11,-13-height/2,22,height,eyes==='pixel'?4:Math.min(11,height/2),'#23332b');
+        if(!asleep&&!blink&&eyes!=='sleepy') pill(x-7,-23,6,8,3,'#fff');
+      }
+    }
+    pill(-62,7,23,12,6,loved?'#ff8f9e':'#f1a99f'); pill(39,7,23,12,6,loved?'#ff8f9e':'#f1a99f');
+    g.strokeStyle='#23332b'; g.lineWidth=2.5; g.lineCap='round'; g.beginPath(); g.moveTo(-8,10); g.quadraticCurveTo(0,22,8,10); g.stroke();
+    if(expression==='yum') { pill(-5,10,10,8,5,'#23332b'); }
+    if(asleep) { g.fillStyle='#d0d7b6';g.textAlign='center';g.font='17px sans-serif';g.fillText('z',84,-57);g.font='12px sans-serif';g.fillText('z',103,-75); }
+    if(loved&&!reducedMotion) { g.fillStyle='#f8b7b2';g.textAlign='center';g.font='16px sans-serif';g.fillText('♥',94,-40-Math.sin(time/300)*5); }
+    g.restore();
 }
 function home(now){
   text(new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),233,45,13,'#819375');

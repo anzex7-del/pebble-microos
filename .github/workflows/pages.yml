@@ -23,6 +23,7 @@ jobs:
         with:
           node-version: '22'
       - run: node tests/profile-web-test.cjs
+      - run: node tests/companion-test.cjs
       - run: node tests/run-browser-tests.cjs
       - run: python3 tools/build_web.py
       - uses: actions/configure-pages@v5
