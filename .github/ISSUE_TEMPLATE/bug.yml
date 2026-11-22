@@ -1,0 +1,26 @@
+name: Bug report
+description: Something does not work as expected
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version or website URL
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Board model and revision, or browser and OS
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include expected and actual behavior. Remove personal data and credentials from logs.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots

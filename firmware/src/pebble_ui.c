@@ -68,7 +68,10 @@ static void render(void) {
         button("Apps",173,363,120,48,nav,APPS); break;
     case APPS: {
         head("YOUR LITTLE WORLD"); const char *names[]={"Pet","Focus","Games","Stopwatch","Breathe","Dice","Settings","Screen rest"}; const int pages[]={HOME,FOCUS,GAMES,STOPWATCH,BREATHE,DICE,SETTINGS,REST};
-        for(int i=0;i<8;i++) button(names[i],85+(i%2)*154,100+(i/2)*63,144,54,nav,pages[i]); back(HOME); break;
+        for(int i=0;i<8;i++) {
+            button(names[i],85+(i%2)*154,100+(i/2)*63,144,54,nav,pages[i]);
+        }
+        back(HOME); break;
     }
     case FOCUS:
         head("FOCUS / TIMER"); live=label("25:00",110,124,246); lv_obj_set_style_text_font(live,&lv_font_montserrat_40,0); sub=label("Grow a little, together.",80,185,306);
@@ -87,7 +90,10 @@ static void render(void) {
     case CATCH:
         head("CATCH A SPARK"); live=label("20 seconds",90,92,286);
         for(int i=0;i<6;i++) button(s.catch_game.running&&s.catch_game.target==i?"*":".",116+(i%3)*80,132+(i/3)*80,72,70,catch_hit,i);
-        if(!s.catch_game.running) button("Start",153,309,160,43,catch_start,0); back(GAMES); break;
+        if(!s.catch_game.running) {
+            button("Start",153,309,160,43,catch_start,0);
+        }
+        back(GAMES); break;
     case STOPWATCH:
         head("STOPWATCH"); live=label("00:00",100,165,266); lv_obj_set_style_text_font(live,&lv_font_montserrat_40,0);
         button(stopwatch_running?"Pause":"Start",103,249,124,58,sw_toggle,0); button("Reset",239,249,124,58,sw_reset,0); back(APPS); break;

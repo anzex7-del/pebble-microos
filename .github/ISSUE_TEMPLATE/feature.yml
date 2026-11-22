@@ -1,0 +1,16 @@
+name: Feature or design idea
+description: Suggest a useful feature, game or design improvement
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What would you like to do?
+      description: Describe the real situation and how the feature would help.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+    validations:
+      required: true
