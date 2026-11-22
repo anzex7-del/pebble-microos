@@ -34,13 +34,17 @@ Do not compete by adding the largest list of utilities. Pip already has many. Yo
 
 ## Release scope
 
-### v0.1 — now
+### v0.1 — initial source preview
 
 Playable browser preview; portable C engine; native LVGL application source; tests; hardware integration instructions. The preview is useful for feedback. Native source is not a release firmware image.
 
-### v0.2 — first device alpha
+### v0.2 — current engineering preview
 
-Build the exact T5 target; verify touch orientation and circular layout; enable speaker completion sounds with a mute setting; wire battery/charging readings; test a clean shutdown; make saved pet state survive repeated reboots. Add native rename, two-player tic-tac-toe and coin flip to close preview gaps. Reproduce the preview's larger face and growth artwork on-device.
+The exact T5 target now compiles in GitHub Actions. Pet Studio and the interactive microOS demo are published on GitHub Pages. Profiles can set the name, color, eyes and focus preset for a custom firmware build. Automated checks, issue templates and numbered preview releases are in place. Physical-device testing is still pending.
+
+### Hardware alpha — next
+
+Verify touch orientation and circular layout; enable speaker completion sounds with a mute setting; wire battery/charging readings; test a clean shutdown; make saved pet state survive repeated reboots. Add native rename, two-player tic-tac-toe and coin flip to close preview gaps. Reproduce the preview's larger face and growth artwork on-device.
 
 ### v0.3 — carryable beta
 
@@ -100,7 +104,7 @@ Three initial clips, each 8–15 seconds:
 
 1. **“I built my focus timer a face.”** Show a fingertip waking it, the focus screen, and the completion expression. For early clips, label the desktop prototype honestly; never stage unbuilt motion features as working hardware.
 2. **“He thinks he can beat me.”** Play a quick tic-tac-toe ending, then reveal the pet's reaction. Make the friendly draw part of the joke.
-3. **“Meet yours.”** Four owners, four names/colors, one physical form. End with a clear demo link once one exists.
+3. **“Meet yours.”** Four owners, four names/colors, one physical form. End with the [Pet Studio link](https://anzex7-del.github.io/pebble-microos/).
 
 Early hardware moments to test: tilt eyes following the owner, face-down nap, a tiny proud reaction after focus, and a greeting when two devices meet. The first two require IMU work; the last requires a designed and validated BLE protocol. They are concept candidates, not current features.
 

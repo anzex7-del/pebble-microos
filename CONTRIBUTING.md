@@ -36,4 +36,4 @@ Names are restricted to the ASCII glyphs in the bundled native font. Profile val
 
 ## Releases
 
-Tag tested source revisions and publish release notes with hardware verification status, known limitations, recovery instructions and artifact checksums. Do not upload calibration data, signing keys, tokens, personal logs, SDK build folders or private profiles. Third-party licensing decisions are described in `THIRD_PARTY_NOTICES.md`; no broader license grant is implied by a public repository.
+Successful firmware builds triggered by a push to `main` publish a `preview-build-N` prerelease with a ZIP, checksums, source revision, installation guide and collected upstream notices. Custom workflow-dispatch builds remain Actions artifacts. Promotion to a stable release requires physical-device acceptance and reviewed release notes. Do not upload calibration data, signing keys, tokens, personal logs, SDK build folders or private profiles. Third-party licensing decisions are described in `THIRD_PARTY_NOTICES.md`; no broader license grant is implied by a public repository.
