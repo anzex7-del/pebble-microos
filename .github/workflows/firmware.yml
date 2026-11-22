@@ -1,0 +1,104 @@
+name: Build T5 preview firmware
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firmware/**'
+      - 'profiles/**'
+      - 'tools/apply_profile.py'
+      - 'tools/stage_tuya.py'
+      - '.github/workflows/firmware.yml'
+  workflow_dispatch:
+    inputs:
+      profile_json:
+        description: 'Optional pet profile JSON from the customization studio. Empty uses Milo.'
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: firmware-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      OPEN_COUNTRY_CODE: Other
+      TUYAOPEN_CN_DOWNLOAD: '0'
+      TUYAOPEN_EXPORT_IDE: '1'
+    steps:
+      - name: Checkout application
+        uses: actions/checkout@v4
+      - name: Check engine and profile
+        run: |
+          sh tools/test.sh
+          python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Apply pet profile
+        env:
+          PEBBLE_PROFILE_JSON: ${{ inputs.profile_json }}
+        run: python3 tools/apply_profile.py --from-env
+      - name: Checkout pinned TuyaOpen SDK
+        uses: actions/checkout@v4
+        with:
+          repository: tuya/TuyaOpen
+          ref: cc6b7cdc35f0168186859c02b4979e9580b3a760
+          path: vendor/TuyaOpen
+          submodules: recursive
+          persist-credentials: false
+      - name: Install Linux host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build wget git python3 python3-pip python3-venv libc6-i386 libsystemd-dev libusb-1.0-0-dev locales
+      - name: Stage application
+        run: python3 tools/stage_tuya.py "$GITHUB_WORKSPACE/vendor/TuyaOpen"
+      - name: Build exact T5 board
+        shell: bash
+        run: |
+          set -eo pipefail
+          cd vendor/TuyaOpen
+          mkdir -p .cache
+          touch .cache/.dont_prompt_update_platform
+          . ./export.sh
+          tos.py check
+          cd examples/pebble_microos
+          tos.py config choice -c WAVESHARE_T5AI_TOUCH_AMOLED_1_75.config
+          tos.py build 2>&1 | tee "$GITHUB_WORKSPACE/firmware-build.log"
+      - name: Collect preview artifacts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, shutil
+          root = Path('vendor/TuyaOpen/examples/pebble_microos')
+          files = list((root / 'dist').rglob('*.bin'))
+          if not files:
+              files = list((root / '.build/bin').rglob('*.bin'))
+          if not files:
+              raise SystemExit('Build produced no firmware BIN; failing release packaging.')
+          target = Path('build/firmware'); target.mkdir(parents=True, exist_ok=True)
+          manifest = []
+          for index, source in enumerate(files):
+              name = source.name
+              if (target / name).exists():
+                  name = str(index) + '-' + name
+              output = target / name; shutil.copy2(source, output)
+              manifest.append({'file':name, 'size':output.stat().st_size, 'sha256':hashlib.sha256(output.read_bytes()).hexdigest()})
+          (target / 'manifest.json').write_text(json.dumps({'version':'0.2.0-preview.1', 'board':'WAVESHARE_T5AI_TOUCH_AMOLED_1_75', 'hardwareTested':False, 'files':manifest}, indent=2))
+          shutil.copy2('firmware/include/pebble_profile.h', target / 'pebble_profile.h')
+          shutil.copy2('docs/HARDWARE_AND_BUILD.md', target / 'INSTALL.md')
+          PY
+      - name: Upload compiled preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: pebble-t5-preview-${{ github.run_number }}
+          path: build/firmware/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t5-build-log-${{ github.run_number }}
+          path: firmware-build.log
+          if-no-files-found: ignore

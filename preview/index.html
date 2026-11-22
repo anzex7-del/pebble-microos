@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pebble microOS — a little life in your pocket</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><a class="brand" href="#"><span class="brandmark">••</span>pebble<span class="os">microOS</span></a><span class="version"><i></i>Interactive prototype · 0.1</span><button id="passport" class="quiet">Save pet portrait ↗</button></header>
+<main>
+<section class="intro"><div class="eyebrow">A LITTLE LIFE IN YOUR POCKET</div><h1>Small screen.<br>Big personality.</h1><p>A companion for the little things.<br>Make time. Play a round. Grow together.</p><div class="localbadge"><span>↳</span> Offline by design. Yours to keep.</div>
+<nav aria-label="Preview apps">
+<button data-page="home" class="active"><span>◉</span> My Pebble <small>01</small></button>
+<button data-page="focus"><span>◷</span> Focus & timer <small>02</small></button>
+<button data-page="games"><span>✣</span> Little arcade <small>03</small></button>
+<button data-page="tools"><span>▦</span> Everyday tools <small>04</small></button>
+<button data-page="style"><span>✿</span> Make it yours <small>05</small></button>
+</nav><div class="hint">Click the screen to explore.<br>Press <kbd>Esc</kbd> to go home.</div></section>
+<section class="studio" aria-label="Device simulator"><div class="studio-top"><span>PEBBLE / ROUND ONE</span><span>466 × 466</span></div><div class="device-wrap"><div class="loop"></div><div class="hardware"><div class="side-key"></div><div class="screen"><canvas id="display" width="466" height="466" aria-label="Round device display"></canvas><div id="touch-controls"></div></div></div></div><div class="under-device"><span class="dot"></span><span id="device-caption">Milo is happy to see you.</span></div><div class="finish-picker" aria-label="Device finish"><button data-finish="moss" class="selected" aria-label="Moss finish" style="--swatch:#65765b"></button><button data-finish="milk" aria-label="Milk finish" style="--swatch:#dedbd0"></button><button data-finish="ink" aria-label="Ink finish" style="--swatch:#343a36"></button><span id="finish-name">MOSS</span></div><div class="studio-bottom"><span>Touch-first. Pocket-sized.</span><span>DESKTOP SIMULATOR</span></div></section>
+<aside class="details"><div class="small-label">YOUR COMPANION</div><h2 id="pet-name">Milo</h2><span class="level" id="level">Level 1 · Sprout</span><div class="growth"><div id="growth-fill"></div></div><p class="next-level" id="next-level">100 sparks to the next chapter</p><div class="stat"><span>Full tummy</span><strong id="food">80</strong><div><i id="food-bar"></i></div></div><div class="stat"><span>Good spirits</span><strong id="joy">80</strong><div><i id="joy-bar"></i></div></div><div class="stat"><span>Energy</span><strong id="energy">90</strong><div><i id="energy-bar"></i></div></div><div class="daily"><span>OUR LITTLE WINS</span><strong id="wins">0</strong><p>focus sessions, together</p></div><div class="note"><span>✳</span><p>No guilt. No pet deaths.<br>Come back when you’re ready.</p></div></aside>
+</main>
+<footer><span>Built for Waveshare T5-E1 Touch AMOLED 1.75.</span><span>Preview runs locally · Hardware firmware still needs board validation</span><button id="backup">Export pet data</button></footer>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="name-dialog"><form method="dialog"><span class="eyebrow">SAY HELLO</span><h2>What’s their name?</h2><label for="name-input">Pet name</label><input id="name-input" maxlength="16" required autocomplete="off"><div><button value="cancel" class="quiet" formnovalidate>Cancel</button><button id="save-name" value="save">That’s the one</button></div></form></dialog>
+<script src="app.js"></script></body></html>
