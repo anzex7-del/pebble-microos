@@ -22,6 +22,7 @@ static lv_obj_t *ssid_input, *password_input, *remember_box, *keyboard;
 static char selected_ssid[33];
 static unsigned listed_count;
 static bool listed_scanning;
+static int cached_eyes=-1, cached_love=-1, cached_theme=-1, cached_target=-2;
 static uint32_t accent(void) { static const uint32_t c[]={0xbfe6a0,0xa4d6f2,0xfac6b1,0xd0bbf3}; return c[s.pet.theme%4]; }
 static void text_if_changed(lv_obj_t *object,const char *text) { if(object&&strcmp(lv_label_get_text(object),text)) lv_label_set_text(object,text); }
 static void button_text(lv_obj_t *button,const char *text) { if(button) text_if_changed(lv_obj_get_child(button,0),text); }
@@ -115,11 +116,18 @@ static void animate_pet(uint32_t now) {
     lv_obj_set_y(pet_group,104+bob);
     bool blink=motion&&(now%4600>4450);
     int height=sleeping||blink?5:preferences.eyes==1?17:33;
-    for(int i=0;i<2;i++) {
-        lv_obj_set_height(pet_eyes[i],height); lv_obj_set_y(pet_eyes[i],81-height/2);
-        lv_obj_set_style_radius(pet_eyes[i],preferences.eyes==2?4:12,0);
-        show(pet_glints[i],!sleeping&&!blink&&preferences.eyes!=1);
-        lv_obj_set_style_bg_color(pet_blush[i],lv_color_hex(reacting&&mood==2?0xff8f9e:0xf1a99f),0);
+    int appearance=height*4+preferences.eyes, love=reacting&&mood==2;
+    if(cached_eyes!=appearance) {
+        for(int i=0;i<2;i++) {
+            lv_obj_set_height(pet_eyes[i],height); lv_obj_set_y(pet_eyes[i],81-height/2);
+            lv_obj_set_style_radius(pet_eyes[i],preferences.eyes==2?4:12,0);
+            show(pet_glints[i],!sleeping&&!blink&&preferences.eyes!=1);
+        }
+        cached_eyes=appearance;
+    }
+    if(cached_love!=love) {
+        for(int i=0;i<2;i++) lv_obj_set_style_bg_color(pet_blush[i],lv_color_hex(love?0xff8f9e:0xf1a99f),0);
+        cached_love=love;
     }
     text_if_changed(pet_extra,sleeping?"z z":reacting?(mood==1?"*":"+"):"");
 }
@@ -135,6 +143,7 @@ static void make_wifi_form(void) {
 static void render(void) {
     live=sub=status_label=aux_label=title=pet_group=pet_body=pet_mouth=pet_extra=NULL;
     memset(cells,0,sizeof(cells)); memset(actions,0,sizeof(actions)); memset(bars,0,sizeof(bars));
+    cached_eyes=cached_love=cached_theme=-1; cached_target=-2;
     lv_obj_clean(root); lv_obj_set_style_bg_color(root,lv_color_hex(0x0b1410),0); lv_obj_set_style_text_font(root,&lv_font_montserrat_20,0);
     char b[100];
     switch(page) {
@@ -146,7 +155,8 @@ static void render(void) {
         primary(button("Apps",166,391,134,40,nav,APPS)); break;
     case APPS: {
         head("A little of everything"); const char *names[]={"Focus","Games","Clock","Connect","Tools","Style"}; const int pages[]={FOCUS,GAMES,CLOCK,CONNECT,TOOLS,SETTINGS};
-        for(int i=0;i<6;i++) button(names[i],84+i%2*154,113+i/2*79,144,63,nav,pages[i]); back(HOME); break;
+        for(int i=0;i<6;i++) { button(names[i],84+i%2*154,113+i/2*79,144,63,nav,pages[i]); }
+        back(HOME); break;
     }
     case FOCUS:
         head("Focus together"); live=label_at(root,"",80,132,306,&lv_font_montserrat_40,accent()); sub=small("",70,192,326);
@@ -216,11 +226,11 @@ static void refresh(uint32_t now) {
         snprintf(b,sizeof(b),s.memory.won?"Your garden is blooming!":"Memory / %u of 4 pairs",s.memory.pairs); text_if_changed(title,b);
         for(int i=0;i<8;i++) { bool visible=(s.memory.matched&(1<<i))||s.memory.first==i||s.memory.second==i; char letter[2]={(char)('A'+s.memory.cards[i]),0}; button_text(cells[i],visible?letter:"?"); } break;
     case CATCH:
-        snprintf(b,sizeof(b),"%u s / %u sparks",(unsigned)(s.catch_game.left_ms+999)/1000,s.catch_game.hits); text_if_changed(live,b); for(int i=0;i<6;i++) { bool active=s.catch_game.running&&s.catch_game.target==i; button_text(cells[i],active?"*":"."); lv_obj_set_style_bg_color(cells[i],lv_color_hex(active?accent():0x243029),0); lv_obj_set_style_text_color(cells[i],lv_color_hex(active?0x15221b:0xf3f3ed),0); } show(actions[0],!s.catch_game.running); break;
+        snprintf(b,sizeof(b),"%u s / %u sparks",(unsigned)(s.catch_game.left_ms+999)/1000,s.catch_game.hits); text_if_changed(live,b); if(cached_target!=(s.catch_game.running?s.catch_game.target:-1)) { for(int i=0;i<6;i++) { bool active=s.catch_game.running&&s.catch_game.target==i; button_text(cells[i],active?"*":"."); lv_obj_set_style_bg_color(cells[i],lv_color_hex(active?accent():0x243029),0); lv_obj_set_style_text_color(cells[i],lv_color_hex(active?0x15221b:0xf3f3ed),0); } cached_target=s.catch_game.running?s.catch_game.target:-1; } show(actions[0],!s.catch_game.running); break;
     case STOPWATCH: { unsigned sec=stopwatch_ms/1000; snprintf(b,sizeof(b),"%02u:%02u.%u",sec/60,sec%60,(unsigned)(stopwatch_ms/100)%10); text_if_changed(live,b); button_text(actions[0],stopwatch_running?"Pause":"Start"); break; }
     case BREATHE: text_if_changed(live,breath_ms%14000<4000?"Breathe in":breath_ms%14000<8000?"Hold gently":"Breathe out"); break;
     case SETTINGS:
-        for(int i=0;i<4;i++) { lv_obj_set_style_bg_color(cells[i],lv_color_hex(s.pet.theme==i?accent():0x243029),0); lv_obj_set_style_text_color(cells[i],lv_color_hex(s.pet.theme==i?0x15221b:0xf3f3ed),0); } button_text(actions[0],motion?"Motion on":"Motion off"); text_if_changed(status_label,services.save_ok?"Pet saved locally":"Save unavailable / session only"); break;
+        if(cached_theme!=s.pet.theme) { for(int i=0;i<4;i++) { lv_obj_set_style_bg_color(cells[i],lv_color_hex(s.pet.theme==i?accent():0x243029),0); lv_obj_set_style_text_color(cells[i],lv_color_hex(s.pet.theme==i?0x15221b:0xf3f3ed),0); } cached_theme=s.pet.theme; } button_text(actions[0],motion?"Motion on":"Motion off"); text_if_changed(status_label,services.save_ok?"Pet saved locally":"Save unavailable / session only"); break;
     case CLOCK:
         if(services.clock_valid) { pb_clock_text(services.epoch,preferences.timezone_minutes,time_text,date); text_if_changed(live,time_text); text_if_changed(sub,services.clock_dated?date:"Manual time"); } else { text_if_changed(live,"--:--"); text_if_changed(sub,"Let\'s set the time"); }
         text_if_changed(status_label,services.time_status); snprintf(b,sizeof(b),"UTC%c%02d:%02d",preferences.timezone_minutes<0?'-':'+',abs(preferences.timezone_minutes)/60,abs(preferences.timezone_minutes)%60); text_if_changed(aux_label,b); break;

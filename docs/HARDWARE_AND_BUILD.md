@@ -31,7 +31,7 @@ The full T5 application compiled and linked successfully in [GitHub Actions buil
 
 Download `pebble-t5-preview.zip` from a successful prerelease and extract it. Read `manifest.json` for the exact board, source commit and SHA-256 checksums. The verified SDK output names its serial-flashing image **`pebble_microos_QIO_1.0.0.bin`**. The `1.0.0` filename suffix is the SDK packaging default; this application's preview version is in the manifest. Do not substitute an OTA image for the QIO serial image.
 
-Build 2 is also available as the `pebble-t5-preview-2` Actions artifact (GitHub sign-in required). Its bundled instructions predate the successful build; use this current guide. Physical-device behavior is unverified: no firmware was flashed during development.
+Build 2 is also available as the `pebble-t5-preview-2` Actions artifact (GitHub sign-in required). Its bundled instructions predate the successful build; use this current guide. The owner flashed the 0.2 baseline and confirmed boot and touch, with lag. The new 0.3 firmware requires its own hardware test.
 
 For a custom pet, follow the Studio workflow in [README.md](../README.md). Custom builds are downloaded from the completed workflow's artifacts; they are not automatically published as public releases.
 
@@ -66,7 +66,7 @@ tos.py config choice
 tos.py build
 ```
 
-This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/project-compilation). Treat compiler output as authoritative. Check that LVGL 9 and Montserrat 20/40 are enabled. The full cross-toolchain and linkage passed in Linux CI. Runtime memory behavior and physical board revisions still require device validation. Keep the full build log and resulting memory report.
+This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/project-compilation). Treat compiler output as authoritative. Check that LVGL 9, partial display flush and Montserrat 16/20/40 are enabled. The full cross-toolchain and linkage passed in Linux CI. Runtime memory behavior and physical board revisions still require device validation. Keep the full build log and resulting memory report.
 
 ## Physical-device installation — only after a successful build
 
@@ -75,7 +75,13 @@ This follows the official [build workflow](https://tuyaopen.ai/docs/quick-start/
 3. For a downloaded QIO binary, use the official T5 flashing tool described in the vendor [flashing and logging guide](https://tuyaopen.ai/docs/quick-start/firmware-burning). Select the extracted QIO binary for this board and follow the tool’s reset prompts. Alternatively, after building the SDK locally, run `tos.py flash` from the application directory; the SDK selects its build output. Use `tos.py flash --help` for available options rather than guessing file arguments. Use the image produced for this exact T5 configuration. Do not manually choose offsets from ESP32 guides.
 4. Use `tos.py monitor` and confirm the Pebble startup log, display, touch and save status. Record the SDK revision and board revision with the result.
 
-The supplied binary is build-tested, not hardware-tested. No flash command has been run in this session.
+The supplied 0.3 binary must pass its full build before installation. Earlier 0.2 boot/touch feedback does not validate the new radio, display or clock changes.
+
+## Preview 0.3 changes
+
+[Connectivity and clock guide](CONNECTIVITY.md) covers on-device Wi-Fi, the three-minute BLE settings window and time setup. The display staging script applies two guarded patches to the pinned SDK: correct the inclusive end coordinates for cropped QSPI rectangles, and avoid selecting full dual framebuffers when partial flush is enabled. It refuses unknown source shapes rather than silently patching another SDK revision. Pin mappings and CO5300 initialization remain vendor-provided.
+
+Touch polling is 16 ms and the display refresh target is 33 ms; these are configured intervals, not measured physical latency or guaranteed frame rates. Controls persist during interactions. Flash/network work is moved out of the LVGL thread, pet motion is small, and unchanged labels/styles are not redrawn unnecessarily. Verify touch lag and screen corruption on hardware before wider use.
 
 ## Device acceptance checklist
 
@@ -84,6 +90,9 @@ The supplied binary is build-tested, not hardware-tested. No flash command has b
 | Boot and recovery | Cold boot succeeds repeatedly; factory recovery demonstrated before a pilot |
 | Display | Correct orientation/color; all 466 × 466 UI elements within the circle; no clipping or tearing |
 | Touch | Every button works with a finger, including near edges; no duplicate moves |
+| Wi-Fi | Scan, join, wrong-password feedback, remember/reboot, forget and offline time fallback |
+| Bluetooth | Browser discovery, confirmed design/time/pat writes, disconnect, expiry, reconnect, malformed payload rejection |
+| Clock | Tbilisi offset, manual adjustment, Wi-Fi/companion sync, midnight rollover, honest unset state after cold boot |
 | Core apps | Complete each game; navigate away/back while timer and stopwatch run |
 | Save | Care/theme/progress survive 20 controlled power cycles; corrupt save produces defaults, not crash |
 | Power loss | Known save-loss window documented; timer cancellation on reboot clearly understood |

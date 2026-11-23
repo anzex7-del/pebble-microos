@@ -186,14 +186,14 @@ static void run_services(void *arg) {
     bool wifi_ready=tal_wifi_init(wifi_event)==OPRT_OK;
     if(!wifi_ready) wifi_message("Wi-Fi initialization failed");
     for(;;) {
-        uint32_t now=millis();
+        uint32_t now;
         bool scan,join,off,forget,sync,save,remember; wifi_credentials next; pb_preferences preferences; uint8_t pet[PB_SAVE_SIZE];
         take();
-        clock_ms+=(uint32_t)(now-clock_tick); clock_tick=now;
+        now=millis(); clock_ms+=(uint32_t)(now-clock_tick); clock_tick=now;
         scan=scan_requested; scan_requested=false; join=join_requested; join_requested=false;
         off=off_requested; off_requested=false; forget=forget_requested; forget_requested=false;
         sync=sync_requested; sync_requested=false; save=save_pending && (uint32_t)(now-save_tick)>=1000; if(save) save_pending=false;
-        next=pending_credentials; remember=remember_pending; preferences=saved_preferences; memcpy(pet,saved_pet,sizeof(pet));
+        next=pending_credentials; if(join) memset(pending_credentials.password,0,sizeof(pending_credentials.password)); remember=remember_pending; preferences=saved_preferences; memcpy(pet,saved_pet,sizeof(pet));
         give();
         if(save&&storage_ok) {
             bool ok=true;
@@ -201,8 +201,9 @@ static void run_services(void *arg) {
             if(memcmp(&preferences,&previous_preferences,sizeof(preferences))) { bool pref_ok=(tal_kv_set("pebble.prefs.v1",(uint8_t *)&preferences,sizeof(preferences))==OPRT_OK); if(pref_ok) previous_preferences=preferences; ok=ok&&pref_ok; }
             take(); status.save_ok=ok; give();
         }
-        if(off&&wifi_ready) { tal_wifi_station_disconnect(); tal_wifi_set_work_mode(WWM_LOWPOWER); memset(&credentials,0,sizeof(credentials)); take(); status.wifi_connected=false; status.scanning=false; status.ip[0]=0; give(); wifi_message("Wi-Fi off"); }
+        if(off&&wifi_ready) { tal_wifi_station_disconnect(); tal_wifi_set_work_mode(WWM_POWERDOWN); memset(&credentials,0,sizeof(credentials)); take(); status.wifi_connected=false; status.scanning=false; status.ip[0]=0; give(); wifi_message("Wi-Fi off"); }
         if(forget&&storage_ok) { tal_kv_del("pebble.wifi.v1"); memset(&next,0,sizeof(next)); take(); memset(&pending_credentials,0,sizeof(pending_credentials)); give(); wifi_message("Saved network removed"); }
+        if(!wifi_ready&&(scan||join)) { take(); status.scanning=false; give(); wifi_message("Wi-Fi unavailable. Restart to retry."); }
         if(scan&&wifi_ready&&!off) scan_networks();
         if(join&&wifi_ready&&!off) {
             credentials=next; tal_wifi_station_disconnect();
@@ -210,7 +211,7 @@ static void run_services(void *arg) {
             if(result==OPRT_OK) result=tal_wifi_station_connect((int8_t *)credentials.ssid,(int8_t *)credentials.password);
             connect_tick=millis(); wifi_message(result==OPRT_OK?"Connecting...":"Connection request failed");
             if(storage_ok) { if(remember) tal_kv_set("pebble.wifi.v1",(uint8_t *)&credentials,sizeof(credentials)); else tal_kv_del("pebble.wifi.v1"); }
-            memset(next.password,0,sizeof(next.password)); take(); memset(pending_credentials.password,0,sizeof(pending_credentials.password)); give();
+            memset(next.password,0,sizeof(next.password));
         }
         if(wifi_ready && (uint32_t)(now-poll_tick)>=1000) {
             poll_tick=now; WF_STATION_STAT_E station=WSS_IDLE; tal_wifi_station_get_status(&station);
