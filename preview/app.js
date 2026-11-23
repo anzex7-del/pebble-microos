@@ -45,8 +45,8 @@ function button(label,x,y,w,h,fn,primary=false,id=label){rect(x,y,w,h,18,primary
 function back(p='home'){button('‹  Back',168,376,130,43,()=>go(p));}
 function head(title,sub=''){text(title.toUpperCase(),233,65,17,'#d5e3cb', 'center',600);if(sub)text(sub,233,93,13,'#85967a');}
 function timerString(ms){const s=Math.ceil(ms/1000);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
-function pet(cx=233,cy=207,scale=1,now=performance.now()) {
-  const g=ctx, time=now, color=palette[state.theme], eyes='round', reducedMotion=reduced;
+function pet(cx=233,cy=207,scale=1,now=performance.now(),g=ctx) {
+  const time=now, color=palette[state.theme], eyes='round', reducedMotion=reduced;
   const expression=state.sleeping?'sleep':now<moodUntil?mood:'happy';
     g.save(); g.translate(cx, cy); g.scale(scale, scale);
     const bob = reducedMotion ? 0 : Math.sin(time / 850) * 2.5;
@@ -60,6 +60,8 @@ function pet(cx=233,cy=207,scale=1,now=performance.now()) {
     pill(-65,51,42,23,13,color); pill(23,51,42,23,13,color);
     pill(-101,-11,38,45,20,color); pill(63,-11,38,45,20,color);
     pill(-82,-57,164,118,57,color); pill(-46,14,92,42,22,'#f6f1de');
+    if(state.xp>=100) { pill(-8,-60,16,17,8,'#f8d59a'); pill(-11,-56,22,8,4,'#f8d59a'); }
+    if(state.xp>=300) { g.fillStyle='#ffe8a3';g.textAlign='center';g.font='15px sans-serif';g.fillText('✦',0,-63); }
     const height=asleep||blink?5:eyes==='sleepy'?15:29;
     for(const x of [-31,31]) {
       if(loved && !asleep) {
@@ -129,7 +131,7 @@ function tick(now){let dt=Math.max(0,now-last);last=now;decay+=dt;saveClock+=dt;
   requestAnimationFrame(tick);
 }
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);}
-function exportPortrait(){const c=document.createElement('canvas');c.width=1080;c.height=1350;const g=c.getContext('2d');g.fillStyle='#edf2e3';g.fillRect(0,0,1080,1350);g.fillStyle='#344a2c';g.textAlign='center';g.font='24px sans-serif';g.fillText('A LITTLE LIFE IN MY POCKET',540,130);g.font='80px sans-serif';g.fillText(state.name,540,250);g.save();g.beginPath();g.arc(540,630,310,0,Math.PI*2);g.clip();g.fillStyle='#090e09';g.fillRect(230,320,620,620);g.fillStyle=palette[state.theme];for(const x of [440,640]){g.beginPath();g.roundRect(x-38,520,76,state.sleeping?12:115,38);g.fill();}g.strokeStyle=palette[state.theme];g.lineWidth=8;g.beginPath();g.arc(540,680,26,0,Math.PI);g.stroke();g.restore();g.fillStyle='#506346';g.font='30px sans-serif';g.fillText(`Level ${1+Math.floor(state.xp/100)}  ·  ${state.focuses} focus sessions together`,540,1040);g.font='27px sans-serif';g.fillText('Small screen. Big personality.',540,1130);g.font='20px sans-serif';g.fillText('PEBBLE microOS · CONCEPT PREVIEW',540,1250);c.toBlob(blob=>{if(blob){download(blob,'My-Pebble.png');toast('Portrait saved. Make it your own little story.');}},'image/png');}
+function exportPortrait(){const c=document.createElement('canvas');c.width=1080;c.height=1350;const g=c.getContext('2d');g.fillStyle='#edf2e3';g.fillRect(0,0,1080,1350);g.fillStyle='#344a2c';g.textAlign='center';g.font='24px sans-serif';g.fillText('A LITTLE LIFE IN MY POCKET',540,130);g.font='80px sans-serif';g.fillText(state.name,540,250);g.save();g.beginPath();g.arc(540,630,310,0,Math.PI*2);g.clip();g.fillStyle='#090e09';g.fillRect(230,320,620,620);pet(540,630,2.3,performance.now(),g);g.restore();g.fillStyle='#506346';g.font='30px sans-serif';g.fillText(`Level ${1+Math.floor(state.xp/100)}  ·  ${state.focuses} focus sessions together`,540,1040);g.font='27px sans-serif';g.fillText('Small screen. Big personality.',540,1130);g.font='20px sans-serif';g.fillText('PEBBLE microOS · CONCEPT PREVIEW',540,1250);c.toBlob(blob=>{if(blob){download(blob,'My-Pebble.png');toast('Portrait saved. Make it your own little story.');}},'image/png');}
 function finish(name){const colors={moss:'#65765b',milk:'#dedbd0',ink:'#343a36'};state.finish=name;document.documentElement.style.setProperty('--shell',colors[name]);$('finish-name').textContent=name.toUpperCase();document.querySelectorAll('[data-finish]').forEach(b=>b.classList.toggle('selected',b.dataset.finish===name));save();}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));document.querySelectorAll('[data-finish]').forEach(b=>b.onclick=()=>finish(b.dataset.finish));
 $('passport').onclick=exportPortrait;$('backup').onclick=()=>download(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'Pebble-pet-backup.json');

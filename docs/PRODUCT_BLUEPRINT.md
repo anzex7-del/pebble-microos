@@ -27,7 +27,7 @@ Start with adults who already enjoy desk accessories, virtual pets, cozy games a
 | Distinctive expressive face | Recognizable even in a small video thumbnail | Original procedural face in preview |
 | Physical reactions | A tilt, tap or flip feels more alive than an app menu | Motion integration still pending |
 | Owner-created portrait | Makes the outcome personal and easy to share | PNG export in browser only |
-| Offline core | Keeps latency, setup and subscription costs down | No application network requests |
+| Offline core | Keeps latency, setup and subscription costs down | Pet core is offline; opt-in network time and BLE settings |
 | A real touch-first launcher | Utilities remain reachable on a small circle | Native source and preview implemented |
 
 Do not compete by adding the largest list of utilities. Pip already has many. Your stronger direction is a coherent focus companion with unusually charming physical behavior and a simple out-of-box experience.
@@ -38,15 +38,19 @@ Do not compete by adding the largest list of utilities. Pip already has many. Yo
 
 Playable browser preview; portable C engine; native LVGL application source; tests; hardware integration instructions. The preview is useful for feedback. Native source is not a release firmware image.
 
-### v0.2 — current engineering preview
+### v0.2 — first hardware preview
 
-The exact T5 target now compiles in GitHub Actions. Pet Studio and the interactive microOS demo are published on GitHub Pages. Profiles can set the name, color, eyes and focus preset for a custom firmware build. Automated checks, issue templates and numbered preview releases are in place. Physical-device testing is still pending.
+The exact T5 target now compiles in GitHub Actions. Pet Studio and the interactive microOS demo are published on GitHub Pages. Profiles can set the name, color, eyes and focus preset for a custom firmware build. Automated checks, issue templates and numbered preview releases are in place. The owner confirmed baseline boot and touch, with lag.
+
+### v0.3 — touch, character and connectivity preview
+
+Retained controls and cropped display updates address the reported lag. A rounded animated bunny replaces the eyes-only native face. Wi-Fi joins local networks and obtains internet time; a timed BLE window lets Studio send pet designs and clock settings. Manual time is also available. Radio and new display behavior require hardware validation; no frame-rate or latency measurements are claimed.
 
 ### Hardware alpha — next
 
-Verify touch orientation and circular layout; enable speaker completion sounds with a mute setting; wire battery/charging readings; test a clean shutdown; make saved pet state survive repeated reboots. Add native rename, two-player tic-tac-toe and coin flip to close preview gaps. Reproduce the preview's larger face and growth artwork on-device.
+Verify touch orientation and circular layout; enable speaker completion sounds with a mute setting; wire battery/charging readings; test a clean shutdown; make saved pet state survive repeated reboots. Add an on-device rename keyboard, two-player tic-tac-toe and coin flip to close preview gaps. Extend growth artwork on-device.
 
-### v0.3 — carryable beta
+### Carryable beta — future
 
 RTC-backed timer restoration, bounded offline pet decay, low-power display policy, physical wake controls, reliable wake-from-timer, motion-based expressions and long-press escape from every app. Finish fonts and screen reader/keyboard support in the companion preview. Measure battery life before setting expectations.
 
@@ -56,7 +60,7 @@ Stable first-run flow, factory recovery, validated update process, battery and e
 
 ### Later, if users ask for it
 
-Nearby pet greetings over opt-in BLE, a companion web app, downloadable cosmetic packs, co-created art, an optional focus history dashboard. iOS notification access, music control, phone pairing, cloud chat and arbitrary third-party app installation are separate projects, not implied capabilities of this release.
+Nearby pet greetings over opt-in BLE, a richer companion web app, downloadable cosmetic packs, co-created art, an optional focus history dashboard. iOS notification access, music control, phone pairing, cloud chat and arbitrary third-party app installation are separate projects, not implied capabilities of this release.
 
 ## Experience specification
 

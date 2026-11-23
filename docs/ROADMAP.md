@@ -9,7 +9,19 @@
 - [x] GitHub Actions T5 cross-build and artifact packaging workflow
 - [x] GitHub Pages deployment workflow
 - [x] Full T5 build confirmed green ([run 45082490199](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199))
-- [ ] First physical-device smoke test
+- [x] Owner confirmed baseline boot/touch; lag reported (23 November 2026)
+
+## Preview 0.3
+
+- [x] Retained controls and background storage/network worker
+- [x] Guarded cropped-QSPI display fix and lower input polling interval
+- [x] Rounded animated pet artwork in native UI, Studio and simulator
+- [x] Wi-Fi scan/join/remember/forget implementation
+- [x] BLE profile/time/pat bridge with acknowledgments and a timed access window
+- [x] Internet/companion/manual clock with UTC offset
+- [x] Native parser/time tests and mocked GATT success/failure tests
+- [ ] Measure touch latency and confirm partial-flush correctness on hardware
+- [ ] Validate Wi-Fi/BLE coexistence and all clock paths on hardware
 
 ## Hardware beta
 
@@ -18,8 +30,8 @@
 - [ ] RTC-backed timer recovery and wake alarm
 - [ ] Speaker tone and mute settings
 - [ ] Motion expressions with a shared-I2C-safe IMU task
-- [ ] USB or BLE profile synchronization with device acknowledgement
-- [ ] Native rename, two-player mode and coin flip
+- [x] BLE profile synchronization implemented with device acknowledgment; radio acceptance pending
+- [ ] Native on-screen rename keyboard, two-player mode and coin flip (BLE rename exists)
 - [ ] 24-hour soak and repeated power-loss tests
 
 ## Release candidate

@@ -89,6 +89,7 @@ jobs:
           (target / 'manifest.json').write_text(json.dumps({'version':'0.3.0-preview.1', 'sourceCommit':os.environ['GITHUB_SHA'], 'buildRun':os.environ['GITHUB_RUN_ID'], 'sdkCommit':'cc6b7cdc35f0168186859c02b4979e9580b3a760', 'board':'WAVESHARE_T5AI_TOUCH_AMOLED_1_75', 'hardwareTested':False, 'files':manifest}, indent=2))
           shutil.copy2('firmware/include/pebble_profile.h', target / 'pebble_profile.h')
           shutil.copy2('docs/HARDWARE_AND_BUILD.md', target / 'INSTALL.md')
+          shutil.copy2('docs/CONNECTIVITY.md', target / 'CONNECTIVITY.md')
           shutil.copy2('THIRD_PARTY_NOTICES.md', target / 'THIRD_PARTY_NOTICES.md')
           sdk = Path('vendor/TuyaOpen')
           for directory, folders, names in os.walk(sdk):

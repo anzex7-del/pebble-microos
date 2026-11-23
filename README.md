@@ -1,4 +1,4 @@
-# Pebble microOS · engineering preview 0.2.0-preview.1
+# Pebble microOS · engineering preview 0.3.0-preview.1
 
 A little companion for a round touchscreen: care for a pet, focus together, and play short games. Built for Anz, 23 November 2026. **Pebble is a working title, not a cleared commercial brand.**
 
@@ -9,18 +9,26 @@ A little companion for a round touchscreen: care for a pet, focus together, and 
 - **[Download T5 preview builds](https://github.com/anzex7-del/pebble-microos/releases)** — compiled firmware with checksums and installation instructions.
 - **[Build verification](https://github.com/anzex7-del/pebble-microos/actions/runs/45082490199)** — the first successful full T5 ARM build. Its `pebble-t5-preview-2` artifact is also downloadable while retained by GitHub; artifact downloads require sign-in.
 
-**Status:** full target compilation and automated engine/preview/profile tests pass. Pet Studio is deployed and its editing controls were checked in a real browser. The firmware has **not been flashed or tested on a physical device**. This is an engineering preview, not a finished consumer release.
+**Hardware feedback:** the owner flashed the 0.2 baseline on the exact T5 board and confirmed boot and touch, reporting touch lag. Preview 0.3 addresses that feedback; its new display path, radios and clock still need a physical-device test. See [validation](docs/VALIDATION.md) for actual checks.
 
-The browser demo and native C/LVGL firmware are separate implementations. The website cannot currently connect to or flash your device. The 10-second browser timer demo intentionally gives no focus reward.
+## New in 0.3
+
+- Retained controls, 16 ms input polling, a 33 ms display refresh target and cropped-screen updates. Network work and coalesced flash saves run on a background thread. These intervals are configuration targets, not measured hardware latency.
+- A rounded bunny pet with ears, paws, glossy eyes, a cream belly, blush, blinking, gentle motion and care/sleep reactions. Four pastel colors and three eye styles.
+- **Apps → Connect → Wi-Fi**: scan/join 2.4 GHz networks, optional remember, disconnect and forget.
+- **Apps → Connect → Bluetooth**: a three-minute BLE window for Pet Studio design changes, pats and clock synchronization.
+- **Apps → Clock**: seconds/date display, internet time, computer time or manual setting. Defaults to UTC+04:00 (Tbilisi). Hardware RTC restore remains pending.
 
 ## Customize and install
 
-1. Open Pet Studio, choose a name (up to 16 English letters/numbers with internal spaces, underscores or hyphens), one of four colors, an eye style, and a 5–60 minute focus preset.
-2. Download the profile, or use **Your device → Copy profile JSON**. **Show profile JSON** is available if clipboard access is unavailable.
-3. Repository owners can open **Actions → Build T5 preview firmware → Run workflow**. Other users first fork the repository and enable Actions. Paste the JSON in `profile_json`; leaving it blank builds Milo.
-4. Wait for a successful build and download its firmware artifact. Follow [the installation guide](docs/HARDWARE_AND_BUILD.md).
+1. Download a successful **0.3** preview from [Releases](https://github.com/anzex7-del/pebble-microos/releases). Flash its **QIO** image using the [T5 installation guide](docs/HARDWARE_AND_BUILD.md).
+2. Open [Pet Studio](https://anzex7-del.github.io/pebble-microos/) in Chrome or Edge. Choose a name, color, eyes and focus length.
+3. Enable Bluetooth on the device, choose **Connect to Pebble** in Studio, then **Send this design**. The page waits for the device to acknowledge each setting. Wait another two seconds before powering off.
+4. Choose **Sync clock**, or join Wi-Fi on the device for automatic internet time.
 
-Customization is applied when firmware is compiled. It is not live USB/BLE synchronization. A previously saved on-device color takes precedence over the compiled default; select the new color in device Settings after updating. Each site's demo and studio keep their own browser-local state; editing one does not synchronize the other.
+Read the [Wi-Fi, Bluetooth and clock guide](docs/CONNECTIVITY.md) for browser support, saved-network behavior and troubleshooting. This BLE preview has no authenticated ownership: nearby clients can change settings while the window is open. It does not send Wi-Fi passwords or flash firmware. Clock time needs to be set again after a cold boot unless Wi-Fi reconnects and resynchronizes it.
+
+For build-time customization, download/copy the profile JSON from Studio and paste it into **Actions → Build T5 preview firmware → Run workflow → profile_json**. Use a fork if you do not have repository write access. A saved on-device profile takes precedence over compiled defaults; use Studio to update it. The simulator and Studio keep separate browser state; device progress is not synchronized.
 
 For an offline demo, run `python3 tools/package.py` and open the generated `Pebble_Preview.html`. It works without an account or network connection.
 
@@ -36,7 +44,7 @@ Read [hardware and build instructions](docs/HARDWARE_AND_BUILD.md) before any ph
 |---|---|---|
 | Pet care, food/joy/energy, sleep/wake | Implemented | Implemented; board validation pending |
 | Personality colors | Four | Four |
-| Visible growth stages | Sprout, buddy, bloom | Level counter; growth artwork pending |
+| Growth | Sprout/buddy/bloom labels and decorations | Level counter |
 | Focus and countdown | 5/25/50 minutes; 10-second demo | 5/custom/50 minutes; 1-minute timer |
 | Timer pause, resume, completion | Implemented | Implemented; awake uptime only |
 | Tic-tac-toe vs unbeatable pet | Implemented | Implemented |
@@ -44,14 +52,15 @@ Read [hardware and build instructions](docs/HARDWARE_AND_BUILD.md) before any ph
 | Memory game | Four pairs; completion reward | Four pairs; completion reward |
 | Catch a spark | 20-second touchscreen game | 20-second touchscreen game |
 | Stopwatch | Start, pause, reset, last lap | Start, pause, reset |
-| Clock | Uses computer clock | RTC integration pending |
+| Clock | Uses computer clock | Wi-Fi, companion or manual time; RTC restore pending |
 | Breathing guide | Animated 4/4/6 rhythm | Text 4/4/6 rhythm |
 | Dice / coin | Both | Dice only |
-| Pet name / eye style | Demo rename; Studio name and three eye styles | Compiled from the Studio profile |
-| Portrait PNG export | Implemented | Phone/USB companion bridge pending |
+| Pet name / eye style | Demo rename; Studio profile editor | Runtime BLE updates and compiled defaults |
+| Portrait PNG export | Implemented | Studio renders portraits; no device screenshot export |
 | Persistence | Browser local storage | Versioned CRC save + Tuya KV adapter, untested on flash |
 | Screen rest | Dark preview | Black screen only; not deep sleep |
-| Sound, motion, battery percentage, BLE, OTA | Not simulated as working | Not implemented |
+| Wi-Fi / BLE | Studio BLE settings bridge; no radio simulation | Station connection / companion service; hardware testing pending |
+| Sound, IMU motion, battery percentage, OTA | Not simulated as working | Not implemented |
 
 Browser and native UI are separate implementations. Matching core behaviors have tests in both; this is not a pixel-identical emulator of the firmware. Progress is not synchronized between the browser and hardware.
 
@@ -85,7 +94,7 @@ The core tests use AddressSanitizer and UndefinedBehaviorSanitizer. The preview 
 
 No pet death, paid resurrection, compulsory daily streaks, account signup, recording or cloud dependency. A completed focus session of at least five minutes awards 25 sparks. Games award smaller amounts. Each 100 sparks advances a level. Care keeps the pet comfortable without awarding farmable focus credit.
 
-The native timer is intentionally session-only until RTC restore and wake behavior are validated. Unexpected power loss can lose up to 30 seconds of pet changes; Settings → Save pet now requests an immediate save. A timer cannot currently wake the board or sound an alarm. Do not use this prototype as a critical alarm.
+The native timer is intentionally session-only until RTC restore and wake behavior are validated. Unexpected power loss can lose up to 30 seconds of pet changes; Style → Save pet queues a save after one quiet second. Network operations can delay queued writes; wait for them to finish before powering down. A timer cannot currently wake the board or sound an alarm. Do not use this prototype as a critical alarm.
 
 ## Sources and reuse
 
