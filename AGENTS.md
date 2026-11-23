@@ -30,7 +30,7 @@ Clock loses time on cold boot until resynced. Hardware RTC, deep sleep, battery 
 ## Next step
 Get owner feedback after flashing build 6: touch lag/tearing, Wi-Fi join/time sync, BLE design/time/pat, reconnect and expiry. Do not describe an untested feature as hardware-validated.
 
-Studio desktop/mobile layouts and reactions were checked. A stale portrait export prompted content-fingerprinted Pages assets (commit `c2aa823`); final live portrait recheck remains open. Core sanitizer tests, eight Python tests and mocked browser/BLE tests passed in their respective local/CI checks.
+Studio desktop/mobile layouts and reactions were checked. After the Pages asset fingerprinting change (`c2aa823`), a live Edge check of `studio.js?v=5e8693f66d74` exported 1080×1350 PNGs for Moss/Happy and Lilac/Loved. Both showed the bunny’s inner ear and cream belly, with the selected body color and reaction-specific cheeks. Core sanitizer tests, eight Python tests and mocked browser/BLE tests passed in their respective local/CI checks.
 
 ## Efficient workflow
 Keep tasks focused; inspect relevant files rather than rereading the repository. Run checks appropriate to the change:
