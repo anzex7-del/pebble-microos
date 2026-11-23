@@ -266,11 +266,24 @@ static void tick(lv_timer_t *timer) {
     if(page==HOME&&(uint32_t)(now-last_face)>=80) { animate_pet(now); last_face=now; }
     if((uint32_t)(now-last_save)>=30000) { last_save=now; save_pet(); }
 }
+
+/* The CO5300 accepts windows in 2x2 pixel blocks. LVGL clips to the
+ * 466x466 screen before this event and also uses it to size partial strips. */
+static void align_co5300_area(lv_event_t *event) {
+    lv_area_t *area = lv_event_get_param(event);
+    area->x1 &= ~1;
+    area->y1 &= ~1;
+    area->x2 |= 1;
+    area->y2 |= 1;
+}
+
 void pebble_ui_start(void) {
+    lv_display_t *display = lv_display_get_default();
+    lv_display_add_event_cb(display, align_co5300_area, LV_EVENT_INVALIDATE_AREA, NULL);
     pb_init(&s,lv_tick_get()+37); s.pet.theme=PB_DEFAULT_THEME; pb_services_init(&s,&preferences); pb_services_snapshot(&services);
     root=lv_screen_active(); lv_obj_remove_flag(root,LV_OBJ_FLAG_SCROLLABLE); lv_obj_set_style_pad_all(root,0,0);
     last_tick=last_save=lv_tick_get();
     for(lv_indev_t *input=lv_indev_get_next(NULL);input;input=lv_indev_get_next(input)) { lv_timer_t *read=lv_indev_get_read_timer(input); if(read) lv_timer_set_period(read,16); }
-    lv_timer_t *refresh_timer=lv_display_get_refr_timer(lv_display_get_default()); if(refresh_timer) lv_timer_set_period(refresh_timer,33);
+    lv_timer_t *refresh_timer=lv_display_get_refr_timer(display); if(refresh_timer) lv_timer_set_period(refresh_timer,33);
     render(); lv_timer_create(tick,20,NULL);
 }
