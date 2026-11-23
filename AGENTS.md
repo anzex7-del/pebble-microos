@@ -8,11 +8,13 @@ Pet Studio: https://anzex7-del.github.io/pebble-microos/
 Simulator: https://anzex7-del.github.io/pebble-microos/demo/
 
 ## Current delivery
-- Version: **0.3.0-preview.1**, firmware release **preview-build-7**.
-- Download: https://github.com/anzex7-del/pebble-microos/releases/tag/preview-build-7
-- Successful exact-target build: Actions run **45163884307**, source **76be85712617120092197178c123e541d6579271**.
+- Version: **0.3.0-preview.1**, firmware release **preview-build-8**.
+- Download: https://github.com/anzex7-del/pebble-microos/releases/tag/preview-build-8
+- Successful exact-target build: Actions run **45166609546**, source **6391194d0db93328e396ee219d74a3310ab9491a**.
 - Flash file: **pebble_microos_QIO_1.0.0.bin**. The SDK filename suffix is not the app version.
-- The owner saw display glitches on taps and during animation after installing the previous preview. Build 7 aligns cropped redraws to the CO5300’s 2×2 pixel grid. A host check covered every in-bounds start/end pair on both axes. Physical confirmation is pending.
+- The owner saw display glitches on taps and during animation before build 7. Build 7 aligns cropped redraws to the CO5300’s 2×2 pixel grid. A host check covered every in-bounds start/end pair on both axes. Physical confirmation is pending.
+
+Build 8 adds QWERTY entry for Wi-Fi and pet names, saved AMOLED brightness and independent PWR/KEY short-press shortcuts in **Apps → Style → Controls**, and a bouncing die with pips in **Apps → Tools → Dice**. Holding PWR still uses the board driver’s power-off behavior. A headless LVGL check exercised touch typing, both shortcuts, brightness limits and the six die faces with simulated hardware inputs and display output.
 
 Implemented: retained LVGL controls; background flash/network worker; cropped display updates; animated bunny; Wi-Fi scan/join/optional remember/forget; three-minute BLE Studio link for design, pats and time; internet/computer/manual clock with UTC+4 default.
 
@@ -28,7 +30,7 @@ Clock loses time on cold boot until resynced. Hardware RTC, deep sleep, battery 
 - TuyaOpen pinned at `cc6b7cdc35f0168186859c02b4979e9580b3a760`.
 
 ## Next step
-On build 7, repeat the taps and animations that glitched and check whether corruption returns. Wi-Fi join/time sync and BLE design/time/pat, reconnect and expiry still need device feedback. Do not describe an untested feature as hardware-validated.
+On build 8, try keyboard entry, change brightness and each shortcut, then reboot to check the settings. Roll the die and repeat the taps and animations that previously glitched. Wi-Fi join/time sync and BLE design/time/pat, reconnect and expiry still need device feedback. Do not describe an untested feature as hardware-validated.
 
 Studio desktop/mobile layouts and reactions were checked. After the Pages asset fingerprinting change (`c2aa823`), a live Edge check of `studio.js?v=5e8693f66d74` exported 1080×1350 PNGs for Moss/Happy and Lilac/Loved. Both showed the bunny’s inner ear and cream belly, with the selected body color and reaction-specific cheeks. Core sanitizer tests, eight Python tests and mocked browser/BLE tests passed in their respective local/CI checks.
 
