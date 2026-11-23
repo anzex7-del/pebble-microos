@@ -9,9 +9,17 @@
 #include <stdint.h>
 #include <string.h>
 
-enum { HOME, APPS, FOCUS, GAMES, TTT, MEMORY, CATCH, STOPWATCH, BREATHE, DICE, SETTINGS, REST, CLOCK, CLOCK_SET, TOOLS, CONNECT, WIFI, WIFI_JOIN, BLUETOOTH };
+enum { HOME, APPS, FOCUS, GAMES, TTT, MEMORY, CATCH, STOPWATCH, BREATHE, DICE, SETTINGS, REST, CLOCK, CLOCK_SET, TOOLS, CONNECT, WIFI, WIFI_JOIN, BLUETOOTH, DEVICE, RENAME };
 static pb_state s;
 static pb_preferences preferences;
+static pb_controls_settings controls;
+static uint8_t requested_brightness;
+static bool brightness_pending, brightness_failed;
+static lv_obj_t *die, *pips[9], *name_input;
+static unsigned die_result = 1, die_frame;
+static uint32_t roll_started;
+static bool rolling;
+static const char *const shortcuts[PB_SHORTCUT_COUNT] = {"Off", "Home", "Apps", "Clock", "Dice"};
 static pb_services_status services;
 static int page=HOME, requested_page=HOME, mood, manual_hour=12, manual_minute;
 static bool stopwatch_running, redraw=true, first_frame=true, motion=true;
@@ -49,7 +57,7 @@ static lv_obj_t *button(const char *text,int x,int y,int w,int h,lv_event_cb_t c
 }
 static void primary(lv_obj_t *o) { lv_obj_set_style_bg_color(o,lv_color_hex(accent()),0); lv_obj_set_style_text_color(o,lv_color_hex(0x15221b),0); }
 static void back(int target) { button("Back",173,385,120,44,nav,target); }
-static void save_pet(void) { pb_services_save(&s,&preferences); }
+static void save_pet(void) { pb_services_save(&s,&preferences,&controls); }
 static void care(lv_event_t *e) {
     int action=(int)(intptr_t)lv_event_get_user_data(e); pb_care(&s,(unsigned)action);
     mood=action==0?1:action==1?2:0; mood_until=lv_tick_get()+2400; last_refresh=0; save_pet();
@@ -69,7 +77,71 @@ static void catch_hit(lv_event_t *e) { pb_catch_hit(&s,(unsigned)(uintptr_t)lv_e
 static void catch_start(lv_event_t *e) { (void)e; pb_catch_start(&s); last_refresh=0; }
 static void sw_toggle(lv_event_t *e) { (void)e; stopwatch_running=!stopwatch_running; last_refresh=0; }
 static void sw_reset(lv_event_t *e) { (void)e; stopwatch_running=false; stopwatch_ms=0; last_refresh=0; }
-static void dice_roll(lv_event_t *e) { (void)e; char t[8]; snprintf(t,sizeof(t),"%u",(unsigned)pb_random(&s,6)+1); text_if_changed(live,t); }
+static void show_die(unsigned face, int dx, int dy) {
+    /* Row-major pip positions on a 3x3 grid. */
+    static const unsigned masks[] = {0, 0x010, 0x101, 0x111, 0x145, 0x155, 0x16d};
+    lv_obj_set_pos(die, 177 + dx, 132 + dy);
+    for (unsigned i = 0; i < 9; ++i) show(pips[i], (masks[face] & (1u << i)) != 0);
+}
+static void dice_roll(lv_event_t *e) {
+    (void)e;
+    if (rolling) return;
+    die_result = 1 + pb_random(&s, 6);
+    rolling = motion;
+    roll_started = lv_tick_get();
+    die_frame = 0;
+    show_die(rolling ? die_result % 6 + 1 : die_result, 0, 0);
+    button_text(actions[0], rolling ? "Rolling..." : "Roll again");
+}
+static void animate_die(uint32_t now) {
+    static const int offsets[][2] = {{0,0}, {-12,-5}, {-5,-15}, {10,-8}, {8,0}, {-4,-5}, {2,-2}};
+    unsigned frame = (now - roll_started) / 85;
+    if (frame == die_frame) return;
+    die_frame = frame;
+    if (frame >= sizeof(offsets) / sizeof(offsets[0])) {
+        rolling = false;
+        show_die(die_result, 0, 0);
+        button_text(actions[0], "Roll again");
+    } else {
+        show_die((die_result + frame) % 6 + 1, offsets[frame][0], offsets[frame][1]);
+    }
+}
+static void change_brightness(lv_event_t *e) {
+    int percent = requested_brightness + (int)(intptr_t)lv_event_get_user_data(e);
+    if (percent < PB_BRIGHTNESS_MIN || percent > PB_BRIGHTNESS_MAX) return;
+    requested_brightness = (uint8_t)percent;
+    brightness_pending = true;
+    brightness_failed = false;
+    lv_obj_invalidate(live);
+    last_refresh = 0;
+}
+/* The custom backlight command shares QSPI with asynchronous pixel transfers. */
+static void apply_brightness(lv_event_t *e) {
+    (void)e;
+    if (!brightness_pending) return;
+    brightness_pending = false;
+    brightness_failed = !pb_set_brightness(requested_brightness);
+    if (brightness_failed) requested_brightness = controls.brightness;
+    else if (controls.brightness != requested_brightness) {
+        controls.brightness = requested_brightness;
+        save_pet();
+    }
+    last_refresh = 0;
+}
+static void change_shortcut(lv_event_t *e) {
+    unsigned i = (unsigned)(uintptr_t)lv_event_get_user_data(e);
+    controls.shortcut[i] = (controls.shortcut[i] + 1) % PB_SHORTCUT_COUNT;
+    last_refresh = 0;
+    save_pet();
+}
+static void handle_buttons(uint32_t now) {
+    static const int pages[PB_SHORTCUT_COUNT] = {HOME, HOME, APPS, CLOCK, DICE};
+    unsigned clicks = pb_controls_clicks(now);
+    for (unsigned i = 0; i < PB_BUTTON_COUNT; ++i) {
+        unsigned action = controls.shortcut[i];
+        if ((clicks & (1u << i)) && action != PB_SHORTCUT_NONE) requested_page = pages[action];
+    }
+}
 static void theme(lv_event_t *e) { s.pet.theme=(uint8_t)(uintptr_t)lv_event_get_user_data(e); save_pet(); last_refresh=0; }
 static void motion_toggle(lv_event_t *e) { (void)e; motion=!motion; last_refresh=0; }
 static void save_click(lv_event_t *e) { (void)e; save_pet(); text_if_changed(status_label,"Save queued"); }
@@ -77,7 +149,7 @@ static void wifi_scan(lv_event_t *e) { (void)e; pb_services_scan(); }
 static void wifi_off(lv_event_t *e) { (void)e; pb_services_wifi_off(); }
 static void wifi_forget(lv_event_t *e) { (void)e; pb_services_forget_wifi(); }
 static void choose_network(lv_event_t *e) { int i=(int)(intptr_t)lv_event_get_user_data(e); selected_ssid[0]=0; if(i>=0&&(unsigned)i<services.ap_count) snprintf(selected_ssid,sizeof(selected_ssid),"%s",services.aps[i].ssid); requested_page=WIFI_JOIN; }
-static void input_focus(lv_event_t *e) { lv_keyboard_set_textarea(keyboard,lv_event_get_target(e)); }
+static void input_focus(lv_event_t *e) { if (keyboard) lv_keyboard_set_textarea(keyboard,lv_event_get_target(e)); }
 static void connect_wifi(lv_event_t *e) {
     (void)e; bool remember=lv_obj_has_state(remember_box,LV_STATE_CHECKED);
     if(pb_services_connect(lv_textarea_get_text(ssid_input),lv_textarea_get_text(password_input),remember)) { lv_textarea_set_text(password_input,""); requested_page=WIFI; }
@@ -131,19 +203,87 @@ static void animate_pet(uint32_t now) {
     }
     text_if_changed(pet_extra,sleeping?"z z":reacting?(mood==1?"*":"+"):"");
 }
+static lv_obj_t *text_field(int y, unsigned length, const char *hint) {
+    lv_obj_t *field = lv_textarea_create(root);
+    lv_textarea_set_one_line(field, true);
+    lv_textarea_set_max_length(field, length);
+    lv_textarea_set_placeholder_text(field, hint);
+    lv_obj_set_size(field, 276, 40);
+    lv_obj_set_pos(field, 95, y);
+    lv_obj_set_style_pad_ver(field, 5, 0);
+    lv_obj_add_event_cb(field, input_focus, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(field, input_focus, LV_EVENT_FOCUSED, NULL);
+    return field;
+}
+static void make_keyboard(lv_obj_t *field) {
+    keyboard = lv_keyboard_create(root);
+    /* Include every printable ASCII symbol for network names and passwords. */
+    static const char *symbols[] = {
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", LV_SYMBOL_BACKSPACE, "\n",
+        "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "\n",
+        "-", "_", "=", "+", "[", "]", "{", "}", "|", "\\", "\n",
+        ";", ":", "'", "\"", ",", ".", "<", ">", "/", "?", "\n",
+        "abc", "`", "~", " ", LV_SYMBOL_LEFT, LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""
+    };
+    static const lv_buttonmatrix_ctrl_t widths[] = {
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        2, 1, 1, 4, 2, 2, 2,
+    };
+    lv_keyboard_set_map(keyboard, LV_KEYBOARD_MODE_SPECIAL, symbols, widths);
+    lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
+    lv_obj_set_size(keyboard, 392, 162);
+    lv_obj_align(keyboard, LV_ALIGN_TOP_MID, 0, 165);
+    lv_obj_set_style_pad_all(keyboard, 2, 0);
+    lv_obj_set_style_pad_column(keyboard, 2, 0);
+    lv_obj_set_style_pad_row(keyboard, 3, 0);
+    lv_obj_set_style_text_font(keyboard, &lv_font_montserrat_16, LV_PART_ITEMS);
+    lv_keyboard_set_textarea(keyboard, field);
+}
+static void leave_editor(lv_event_t *e) {
+    (void)e;
+    requested_page = page == RENAME ? SETTINGS : WIFI;
+}
+static void wifi_ready(lv_event_t *e) {
+    if (lv_event_get_target(e) == ssid_input) lv_keyboard_set_textarea(keyboard, password_input);
+    else connect_wifi(e);
+}
 static void make_wifi_form(void) {
     head("Join Wi-Fi");
-    ssid_input=lv_textarea_create(root); lv_obj_set_pos(ssid_input,86,87); lv_obj_set_size(ssid_input,294,45); lv_textarea_set_one_line(ssid_input,true); lv_textarea_set_max_length(ssid_input,32); lv_textarea_set_placeholder_text(ssid_input,"Network name"); lv_textarea_set_text(ssid_input,selected_ssid);
-    password_input=lv_textarea_create(root); lv_obj_set_pos(password_input,86,139); lv_obj_set_size(password_input,294,45); lv_textarea_set_one_line(password_input,true); lv_textarea_set_max_length(password_input,64); lv_textarea_set_password_mode(password_input,true); lv_textarea_set_placeholder_text(password_input,"Password (blank if open)");
-    remember_box=lv_checkbox_create(root); lv_obj_set_pos(remember_box,105,191); lv_checkbox_set_text(remember_box,"Remember on this device"); lv_obj_set_style_text_font(remember_box,&lv_font_montserrat_16,0);
-    keyboard=lv_keyboard_create(root); lv_obj_set_pos(keyboard,63,218); lv_obj_set_size(keyboard,340,131); lv_obj_set_style_text_font(keyboard,&lv_font_montserrat_16,LV_PART_ITEMS); lv_keyboard_set_textarea(keyboard,selected_ssid[0]?password_input:ssid_input);
-    lv_obj_add_event_cb(ssid_input,input_focus,LV_EVENT_FOCUSED,NULL); lv_obj_add_event_cb(password_input,input_focus,LV_EVENT_FOCUSED,NULL);
-    primary(button("Connect",92,363,132,44,connect_wifi,0)); button("Cancel",242,363,132,44,nav,WIFI);
+    ssid_input = text_field(75, 32, "Network name");
+    lv_textarea_set_text(ssid_input, selected_ssid);
+    password_input = text_field(119, 64, "Password (blank if open)");
+    lv_textarea_set_password_mode(password_input, true);
+    make_keyboard(selected_ssid[0] ? password_input : ssid_input);
+    lv_obj_add_event_cb(ssid_input, wifi_ready, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(password_input, wifi_ready, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(keyboard, leave_editor, LV_EVENT_CANCEL, NULL);
+    remember_box=lv_checkbox_create(root); lv_obj_set_pos(remember_box,105,335); lv_checkbox_set_text(remember_box,"Remember on this device"); lv_obj_set_style_text_font(remember_box,&lv_font_montserrat_16,0);
+    primary(button("Connect",109,370,118,44,connect_wifi,0)); button("Cancel",239,370,118,44,nav,WIFI);
+}
+static void save_name(lv_event_t *e) {
+    (void)e;
+    const char *name = lv_textarea_get_text(name_input);
+    uint8_t data[17] = {'N'};
+    size_t len = strlen(name);
+    pb_command parsed;
+    if (len <= 16) memcpy(data + 1, name, len);
+    if (len > 16 || !pb_command_parse(data, len + 1, &parsed)) {
+        text_if_changed(sub, "Start with a letter or digit. No end spaces.");
+        return;
+    }
+    snprintf(preferences.name, sizeof(preferences.name), "%s", parsed.name);
+    save_pet();
+    requested_page = SETTINGS;
 }
 static void render(void) {
     live=sub=status_label=aux_label=title=pet_group=pet_body=pet_mouth=pet_extra=NULL;
     memset(cells,0,sizeof(cells)); memset(actions,0,sizeof(actions)); memset(bars,0,sizeof(bars));
     cached_eyes=cached_love=cached_theme=-1; cached_target=-2;
+    keyboard = NULL;
+    rolling = false;
     lv_obj_clean(root); lv_obj_set_style_bg_color(root,lv_color_hex(0x0b1410),0); lv_obj_set_style_text_font(root,&lv_font_montserrat_20,0);
     char b[100];
     switch(page) {
@@ -178,11 +318,39 @@ static void render(void) {
     case BREATHE:
         head("One quiet moment"); shape(root,153,121,160,160,80,0x243b2b); live=label("Breathe in",100,183,266); small("4 in / 4 hold / 6 out",90,303,286); back(TOOLS); break;
     case DICE:
-        head("Let it roll"); live=label_at(root,"?",100,154,266,&lv_font_montserrat_40,accent()); button("Roll a die",133,258,200,60,dice_roll,0); back(TOOLS); break;
+        head("Let it roll");
+        die = shape(root, 177, 132, 112, 112, 20, accent());
+        for (int i = 0; i < 9; ++i)
+            pips[i] = shape(die, 18 + (i % 3) * 30, 18 + (i / 3) * 30, 16, 16, 8, 0x15221b);
+        show_die(die_result, 0, 0);
+        actions[0] = button("Roll a die", 133, 276, 200, 56, dice_roll, 0);
+        back(TOOLS); break;
     case SETTINGS: {
-        head("Make it yours"); const char *colors[]={"Moss","Sky","Peach","Lilac"}; for(int i=0;i<4;i++) cells[i]=button(colors[i],85+i%2*154,107+i/2*66,144,55,theme,i);
-        actions[0]=button("Motion on",103,251,124,50,motion_toggle,0); button("Save pet",239,251,124,50,save_click,0); status_label=small("",67,321,332); back(APPS); break;
+        head("Make it yours"); const char *colors[]={"Moss","Sky","Peach","Lilac"}; for(int i=0;i<4;i++) cells[i]=button(colors[i],85+i%2*154,89+i/2*58,144,48,theme,i);
+        actions[0]=button("Motion on",85,205,144,48,motion_toggle,0); button("Save pet",239,205,144,48,save_click,0);
+        button("Rename",85,264,144,48,nav,RENAME); button("Controls",239,264,144,48,nav,DEVICE);
+        status_label=small("",67,329,332); back(APPS); break;
     }
+    case RENAME:
+        head("Pet name");
+        name_input = text_field(112, 16, "Pet name");
+        lv_textarea_set_text(name_input, preferences.name);
+        make_keyboard(name_input);
+        lv_obj_add_event_cb(name_input, save_name, LV_EVENT_READY, NULL);
+        lv_obj_add_event_cb(keyboard, leave_editor, LV_EVENT_CANCEL, NULL);
+        sub=small("Up to 16 letters, digits, spaces, - or _",55,336,356);
+        primary(button("Save",109,370,118,44,save_name,0)); button("Cancel",239,370,118,44,nav,SETTINGS);
+        break;
+    case DEVICE:
+        head("Device controls");
+        live = label("", 100, 94, 266);
+        button("Dimmer", 88, 130, 138, 48, change_brightness, -10);
+        button("Brighter", 240, 130, 138, 48, change_brightness, 10);
+        small("Tap to change a short press", 75, 205, 316);
+        actions[0] = button("", 108, 239, 250, 46, change_shortcut, PB_PWR);
+        actions[1] = button("", 108, 294, 250, 46, change_shortcut, PB_KEY);
+        small("Hold PWR to power off", 95, 351, 276);
+        back(SETTINGS); break;
     case CLOCK:
         head("Your little clock"); live=label_at(root,"--:--",70,130,326,&lv_font_montserrat_40,accent()); sub=label("",85,184,296); status_label=small("",70,220,326); aux_label=small("",90,254,286);
         button("Sync",103,300,124,48,clock_sync,0); button("Set time",239,300,124,48,nav,CLOCK_SET); back(APPS); break;
@@ -231,6 +399,14 @@ static void refresh(uint32_t now) {
     case BREATHE: text_if_changed(live,breath_ms%14000<4000?"Breathe in":breath_ms%14000<8000?"Hold gently":"Breathe out"); break;
     case SETTINGS:
         if(cached_theme!=s.pet.theme) { for(int i=0;i<4;i++) { lv_obj_set_style_bg_color(cells[i],lv_color_hex(s.pet.theme==i?accent():0x243029),0); lv_obj_set_style_text_color(cells[i],lv_color_hex(s.pet.theme==i?0x15221b:0xf3f3ed),0); } cached_theme=s.pet.theme; } button_text(actions[0],motion?"Motion on":"Motion off"); text_if_changed(status_label,services.save_ok?"Pet saved locally":"Save unavailable / session only"); break;
+    case DEVICE:
+        snprintf(b, sizeof(b), brightness_failed ? "Brightness unavailable" : "Brightness %u%%", (unsigned)requested_brightness);
+        text_if_changed(live, b);
+        snprintf(b, sizeof(b), "PWR: %s", shortcuts[controls.shortcut[PB_PWR]]);
+        button_text(actions[0], b);
+        snprintf(b, sizeof(b), "KEY: %s", shortcuts[controls.shortcut[PB_KEY]]);
+        button_text(actions[1], b);
+        break;
     case CLOCK:
         if(services.clock_valid) { pb_clock_text(services.epoch,preferences.timezone_minutes,time_text,date); text_if_changed(live,time_text); text_if_changed(sub,services.clock_dated?date:"Manual time"); } else { text_if_changed(live,"--:--"); text_if_changed(sub,"Let\'s set the time"); }
         text_if_changed(status_label,services.time_status); snprintf(b,sizeof(b),"UTC%c%02d:%02d",preferences.timezone_minutes<0?'-':'+',abs(preferences.timezone_minutes)/60,abs(preferences.timezone_minutes)%60); text_if_changed(aux_label,b); break;
@@ -259,10 +435,12 @@ static void tick(lv_timer_t *timer) {
     (void)timer; uint32_t now=lv_tick_get(), dt=now-last_tick; last_tick=now;
     pb_tick(&s,dt); breath_ms+=dt; if(stopwatch_running) stopwatch_ms+=dt;
     pb_services_snapshot(&services); pb_command command; if(pb_services_next_command(&command)) command_apply(&command);
+    handle_buttons(now);
     if(requested_page!=page) { page=requested_page; redraw=true; if(page==BREATHE) breath_ms=0; if(page==CLOCK_SET&&services.clock_valid) { char t[9],d[24]; pb_clock_text(services.epoch,preferences.timezone_minutes,t,d); manual_hour=(t[0]-'0')*10+t[1]-'0'; manual_minute=(t[3]-'0')*10+t[4]-'0'; } }
     if(page==WIFI&&(listed_count!=services.ap_count||listed_scanning!=services.scanning)) redraw=true;
     if(redraw) render();
     if(first_frame || !last_refresh || (uint32_t)(now-last_refresh)>=100) { refresh(now); last_refresh=now; first_frame=false; }
+    if (page == DICE && rolling) animate_die(now);
     if(page==HOME&&(uint32_t)(now-last_face)>=80) { animate_pet(now); last_face=now; }
     if((uint32_t)(now-last_save)>=30000) { last_save=now; save_pet(); }
 }
@@ -280,7 +458,11 @@ static void align_co5300_area(lv_event_t *event) {
 void pebble_ui_start(void) {
     lv_display_t *display = lv_display_get_default();
     lv_display_add_event_cb(display, align_co5300_area, LV_EVENT_INVALIDATE_AREA, NULL);
-    pb_init(&s,lv_tick_get()+37); s.pet.theme=PB_DEFAULT_THEME; pb_services_init(&s,&preferences); pb_services_snapshot(&services);
+    pb_init(&s,lv_tick_get()+37); s.pet.theme=PB_DEFAULT_THEME; pb_services_init(&s,&preferences,&controls); pb_services_snapshot(&services);
+    pb_controls_init();
+    requested_brightness = controls.brightness;
+    brightness_pending = true;
+    lv_display_add_event_cb(display, apply_brightness, LV_EVENT_FLUSH_WAIT_FINISH, NULL);
     root=lv_screen_active(); lv_obj_remove_flag(root,LV_OBJ_FLAG_SCROLLABLE); lv_obj_set_style_pad_all(root,0,0);
     last_tick=last_save=lv_tick_get();
     for(lv_indev_t *input=lv_indev_get_next(NULL);input;input=lv_indev_get_next(input)) { lv_timer_t *read=lv_indev_get_read_timer(input); if(read) lv_timer_set_period(read,16); }

@@ -2,6 +2,7 @@
 #define PEBBLE_SERVICES_H
 #include "pebble.h"
 #include "pebble_link.h"
+#include "pebble_controls.h"
 
 #define PB_AP_MAX 8
 typedef struct {
@@ -21,9 +22,9 @@ typedef struct {
     char wifi_status[64], ip[20], ble_status[48], time_status[48];
 } pb_services_status;
 
-void pb_services_init(pb_state *state, pb_preferences *preferences);
+void pb_services_init(pb_state *state, pb_preferences *preferences, pb_controls_settings *controls);
 void pb_services_snapshot(pb_services_status *out);
-void pb_services_save(const pb_state *state, const pb_preferences *preferences);
+void pb_services_save(const pb_state *state, const pb_preferences *preferences, const pb_controls_settings *controls);
 void pb_services_scan(void);
 bool pb_services_connect(const char *ssid, const char *password, bool remember);
 void pb_services_wifi_off(void);

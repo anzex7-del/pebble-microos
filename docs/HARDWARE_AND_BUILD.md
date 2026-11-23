@@ -83,6 +83,12 @@ The supplied 0.3 binary must pass its full build before installation. Earlier 0.
 
 Touch polling is 16 ms and the display refresh target is 33 ms; these are configured intervals, not measured physical latency or guaranteed frame rates. Controls persist during interactions. Flash/network work is moved out of the LVGL thread, pet motion is small, and unchanged labels/styles are not redrawn unnecessarily. Verify touch lag and screen corruption on hardware before wider use.
 
+## Device controls
+
+In **Apps → Style → Controls**, use **Dimmer** and **Brighter** to adjust the AMOLED from 10% to 100%. Tap **PWR** or **KEY** to cycle its short-press action through Off, Home, Apps, Clock and Dice. PWR starts at Home and KEY at Apps. Holding PWR for three seconds invokes the board’s power-off function. Brightness and shortcuts save automatically with the existing delayed settings save.
+
+**Style → Rename** and the Wi-Fi join form share an on-screen QWERTY keyboard. Tap **ABC** for capitals or **1#** for numbers and symbols. In **Apps → Tools → Dice**, the die bounces through several faces and settles on the result. Turning motion off in Style shows the final face immediately.
+
 ## Device acceptance checklist
 
 | Test | Pass condition |

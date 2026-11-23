@@ -22,6 +22,7 @@ static char pending_reply[21];
 static uint32_t save_tick;
 static uint8_t saved_pet[PB_SAVE_SIZE], previous_pet[PB_SAVE_SIZE];
 static pb_preferences saved_preferences, previous_preferences;
+static pb_controls_settings saved_controls, previous_controls;
 typedef struct { char ssid[33], password[65]; } wifi_credentials;
 static wifi_credentials credentials, pending_credentials;
 
@@ -75,10 +76,10 @@ void pb_services_snapshot(pb_services_status *out) {
     int32_t left=(int32_t)(ble_until-millis()); out->ble_seconds=ble_wanted&&left>0?(uint32_t)(left+999)/1000:0;
     give();
 }
-void pb_services_save(const pb_state *state, const pb_preferences *preferences) {
+void pb_services_save(const pb_state *state, const pb_preferences *preferences, const pb_controls_settings *controls) {
     if(!lock||!storage_ok) return;
     uint8_t data[PB_SAVE_SIZE]; pb_save(state,data);
-    take(); memcpy(saved_pet,data,sizeof(data)); saved_preferences=*preferences; save_pending=true; save_tick=millis(); give();
+    take(); memcpy(saved_pet,data,sizeof(data)); saved_preferences=*preferences; saved_controls=*controls; save_pending=true; save_tick=millis(); give();
 }
 void pb_services_scan(void) { if(lock) { take(); scan_requested=true; status.wifi_on=true; status.scanning=true; give(); } }
 bool pb_services_connect(const char *ssid, const char *password, bool remember) {
@@ -187,18 +188,23 @@ static void run_services(void *arg) {
     if(!wifi_ready) wifi_message("Wi-Fi initialization failed");
     for(;;) {
         uint32_t now;
-        bool scan,join,off,forget,sync,save,remember; wifi_credentials next; pb_preferences preferences; uint8_t pet[PB_SAVE_SIZE];
+        bool scan,join,off,forget,sync,save,remember; wifi_credentials next; pb_controls_settings controls; pb_preferences preferences; uint8_t pet[PB_SAVE_SIZE];
         take();
         now=millis(); clock_ms+=(uint32_t)(now-clock_tick); clock_tick=now;
         scan=scan_requested; scan_requested=false; join=join_requested; join_requested=false;
         off=off_requested; off_requested=false; forget=forget_requested; forget_requested=false;
         sync=sync_requested; sync_requested=false; save=save_pending && (uint32_t)(now-save_tick)>=1000; if(save) save_pending=false;
-        next=pending_credentials; if(join) memset(pending_credentials.password,0,sizeof(pending_credentials.password)); remember=remember_pending; preferences=saved_preferences; memcpy(pet,saved_pet,sizeof(pet));
+        next=pending_credentials; if(join) memset(pending_credentials.password,0,sizeof(pending_credentials.password)); remember=remember_pending; preferences=saved_preferences; controls=saved_controls; memcpy(pet,saved_pet,sizeof(pet));
         give();
         if(save&&storage_ok) {
             bool ok=true;
             if(memcmp(pet,previous_pet,sizeof(pet))) { ok=(tal_kv_set("pebble.v1",pet,sizeof(pet))==OPRT_OK); if(ok) memcpy(previous_pet,pet,sizeof(pet)); }
             if(memcmp(&preferences,&previous_preferences,sizeof(preferences))) { bool pref_ok=(tal_kv_set("pebble.prefs.v1",(uint8_t *)&preferences,sizeof(preferences))==OPRT_OK); if(pref_ok) previous_preferences=preferences; ok=ok&&pref_ok; }
+            if (memcmp(&controls, &previous_controls, sizeof(controls))) {
+                if (tal_kv_set("pebble.controls.v1", (uint8_t *)&controls, sizeof(controls)) == OPRT_OK)
+                    previous_controls = controls;
+                else ok = false;
+            }
             take(); status.save_ok=ok; give();
         }
         if(off&&wifi_ready) { tal_wifi_station_disconnect(); tal_wifi_set_work_mode(WWM_POWERDOWN); memset(&credentials,0,sizeof(credentials)); take(); status.wifi_connected=false; status.scanning=false; status.ip[0]=0; give(); wifi_message("Wi-Fi off"); }
@@ -233,7 +239,8 @@ static void run_services(void *arg) {
         tal_system_sleep(50);
     }
 }
-void pb_services_init(pb_state *state, pb_preferences *preferences) {
+void pb_services_init(pb_state *state, pb_preferences *preferences, pb_controls_settings *controls) {
+    *controls = (pb_controls_settings){.brightness = 80, .shortcut = {PB_SHORTCUT_HOME, PB_SHORTCUT_APPS}};
     memset(&status,0,sizeof(status)); memset(preferences,0,sizeof(*preferences));
     preferences->version=1; copy_text(preferences->name,sizeof(preferences->name),PB_PET_NAME);
     preferences->eyes=PB_EYE_STYLE; preferences->focus_minutes=PB_FOCUS_MINUTES; preferences->timezone_minutes=240;
@@ -250,6 +257,16 @@ void pb_services_init(pb_state *state, pb_preferences *preferences) {
             }
             tal_kv_free(data);
         }
+        if (tal_kv_get("pebble.controls.v1", &data, &size) == OPRT_OK) {
+            pb_controls_settings loaded;
+            if (size == sizeof(loaded)) {
+                memcpy(&loaded, data, size);
+                if (loaded.brightness >= PB_BRIGHTNESS_MIN && loaded.brightness <= PB_BRIGHTNESS_MAX &&
+                    loaded.shortcut[PB_PWR] < PB_SHORTCUT_COUNT && loaded.shortcut[PB_KEY] < PB_SHORTCUT_COUNT)
+                    *controls = loaded;
+            }
+            tal_kv_free(data);
+        }
         if(tal_kv_get("pebble.wifi.v1",&data,&size)==OPRT_OK) {
             if(size==sizeof(credentials)) { memcpy(&credentials,data,size); credentials.ssid[32]=0; credentials.password[64]=0;
                 if(pb_wifi_credentials_valid(credentials.ssid,credentials.password)) { pending_credentials=credentials; join_requested=true; remember_pending=true; status.wifi_on=true; }
@@ -257,6 +274,7 @@ void pb_services_init(pb_state *state, pb_preferences *preferences) {
             tal_kv_free(data);
         }
     }
+    saved_controls = previous_controls = *controls;
     pb_save(state,previous_pet); previous_preferences=*preferences; saved_preferences=*preferences; memcpy(saved_pet,previous_pet,sizeof(saved_pet));
     status.save_ok=storage_ok; copy_text(status.wifi_status,sizeof(status.wifi_status),"Wi-Fi off"); copy_text(status.ble_status,sizeof(status.ble_status),"Bluetooth off"); copy_text(status.time_status,sizeof(status.time_status),"Set time or connect Wi-Fi");
     clock_tick=millis(); tal_sw_timer_init(); tal_workq_init();
