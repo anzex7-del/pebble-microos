@@ -9,15 +9,16 @@ assert.throws(()=>link.clockCommands(new Date('bad')));
 assert.throws(()=>link.clockCommands(new Date('2000-01-01')));
 (async()=>{
   const encoder=new TextEncoder(), decoder=new TextDecoder();
-  let reply='OK:V', device, requests=[], writes=[], failures=false, stale=false;
+  let reply='OK:V', device, requests=[], writes=[], failures=false, stale=false, staleReads=0;
   const writer={properties:{write:true},writeValueWithResponse:async data=>{const s=decoder.decode(data);writes.push(s);if(!stale)reply=failures?'ERR!':'OK:'+s;}};
-  const reader={readValue:async()=>new DataView(encoder.encode(reply).buffer)};
+  const reader={readValue:async()=>new DataView(encoder.encode(staleReads-->0?'ERR!':reply).buffer)};
   const service={getCharacteristic:async id=>{assert.ok([link.writeId,link.readId].includes(id));return id===link.writeId?writer:reader;}};
   device={name:'Pebble',addEventListener(){},removeEventListener(){},gatt:{connected:false,connect:async()=>{device.gatt.connected=true;return {getPrimaryService:async id=>{assert.equal(id,0xfd50);return service;}};},disconnect:()=>{device.gatt.connected=false;}}};
   const client=link.createClient({requestDevice:async opts=>{requests.push(opts);return device;}},()=>{},{delay:async()=>{}});
   await assert.rejects(()=>client.send(['P']),/Connect/);
   await client.connect();assert.equal(client.connected(),true);assert.equal(requests[0].filters[0].namePrefix,'Pebble');
   await client.send(link.profileCommands(PebbleProfile.defaultProfile()));assert.deepEqual(writes,['NMilo','C0','E0','F25']);
+  staleReads=2;await client.send(['E1']);assert.equal(writes.at(-1),'E1');
   // Echoed values, not just a successful transport write, confirm application.
   stale=true; await assert.rejects(()=>client.send(['F50']),/0 of 1 settings confirmed/);stale=false;
   failures=true;await assert.rejects(()=>client.send(['C2']),/rejected/);failures=false;

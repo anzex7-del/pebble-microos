@@ -19,13 +19,16 @@ const PebbleCompanion = (() => {
     const connected = () => Boolean(device?.gatt?.connected && writer && reader);
     function clear() { writer = reader = null; onDisconnect(); }
     async function acknowledge(expected) {
+      let lastValue='';
       for (let i = 0; i < 40; i++) {
         if (!connected()) throw new Error('Pebble disconnected. Enable its Bluetooth window and reconnect.');
         const value = decoder.decode(await reader.readValue()).replace(/\0+$/, '');
         if (value === expected) return;
-        if (value === 'ERR!') throw new Error('Pebble rejected the setting. Check the profile and retry.');
+        // Reads can still contain the previous command's result until the worker replies.
+        lastValue=value;
         await delay(100);
       }
+      if(lastValue==='ERR!' && expected!=='OK:V') throw new Error('Pebble rejected the setting. Check the profile and retry.');
       throw new Error('Pebble did not confirm the change. Stop any Wi-Fi scan, then reconnect and retry.');
     }
     async function connect() {
