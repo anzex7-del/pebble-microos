@@ -8,11 +8,11 @@ Pet Studio: https://anzex7-del.github.io/pebble-microos/
 Simulator: https://anzex7-del.github.io/pebble-microos/demo/
 
 ## Current delivery
-- Version: **0.3.0-preview.1**, firmware release **preview-build-6**.
-- Download: https://github.com/anzex7-del/pebble-microos/releases/tag/preview-build-6
-- Successful exact-target build: Actions run **45086747375**, source **7671580936299c8cd579e5c1a7a49ca532348894**.
+- Version: **0.3.0-preview.1**, firmware release **preview-build-7**.
+- Download: https://github.com/anzex7-del/pebble-microos/releases/tag/preview-build-7
+- Successful exact-target build: Actions run **45163884307**, source **76be85712617120092197178c123e541d6579271**.
 - Flash file: **pebble_microos_QIO_1.0.0.bin**. The SDK filename suffix is not the app version.
-- Owner tested v0.2 boot/touch and reported lag. **The new v0.3 display, radios and clock still require physical testing.**
+- The owner saw display glitches on taps and during animation after installing the previous preview. Build 7 aligns cropped redraws to the CO5300’s 2×2 pixel grid. A host check covered every in-bounds start/end pair on both axes. Physical confirmation is pending.
 
 Implemented: retained LVGL controls; background flash/network worker; cropped display updates; animated bunny; Wi-Fi scan/join/optional remember/forget; three-minute BLE Studio link for design, pats and time; internet/computer/manual clock with UTC+4 default.
 
@@ -28,7 +28,7 @@ Clock loses time on cold boot until resynced. Hardware RTC, deep sleep, battery 
 - TuyaOpen pinned at `cc6b7cdc35f0168186859c02b4979e9580b3a760`.
 
 ## Next step
-Get owner feedback after flashing build 6: touch lag/tearing, Wi-Fi join/time sync, BLE design/time/pat, reconnect and expiry. Do not describe an untested feature as hardware-validated.
+On build 7, repeat the taps and animations that glitched and check whether corruption returns. Wi-Fi join/time sync and BLE design/time/pat, reconnect and expiry still need device feedback. Do not describe an untested feature as hardware-validated.
 
 Studio desktop/mobile layouts and reactions were checked. After the Pages asset fingerprinting change (`c2aa823`), a live Edge check of `studio.js?v=5e8693f66d74` exported 1080×1350 PNGs for Moss/Happy and Lilac/Loved. Both showed the bunny’s inner ear and cream belly, with the selected body color and reaction-specific cheeks. Core sanitizer tests, eight Python tests and mocked browser/BLE tests passed in their respective local/CI checks.
 
