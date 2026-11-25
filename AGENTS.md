@@ -34,6 +34,16 @@ On build 8, try keyboard entry, change brightness and each shortcut, then reboot
 
 Studio desktop/mobile layouts and reactions were checked. After the Pages asset fingerprinting change (`c2aa823`), a live Edge check of `studio.js?v=5e8693f66d74` exported 1080×1350 PNGs for Moss/Happy and Lilac/Loved. Both showed the bunny’s inner ear and cream belly, with the selected body color and reaction-specific cheeks. Core sanitizer tests, eight Python tests and mocked browser/BLE tests passed in their respective local/CI checks.
 
+## Agent workflow
+
+The coordinator uses the project roles in `.codex/agents/` for Pebble development. Wait for the owner's build 8 hardware feedback before the next firmware change.
+
+1. For UI work, ask `ui_designer` for a proposal scoped to the affected UI files, with observable acceptance criteria. An explicit owner request approves that improvement. Bring new proposals to the owner before implementation.
+2. Give `feature_developer` one approved improvement at a time. Prepare the change away from main so the full diff is available before a merge or release.
+3. Give `security_stability_checker` the diff and acceptance criteria. Send findings to the developer for fixes and repeat affected checks.
+4. Give a fresh `independent_code_reviewer` the complete final diff against its base and the check results. Obtain its report before merging, updating main or releasing. If the diff changes, have the checker verify the affected paths and the reviewer inspect the revised final diff.
+5. The coordinator resolves blocking findings before integration and reports what changed, checks run and remaining device validation.
+
 ## Efficient workflow
 Keep tasks focused; inspect relevant files rather than rereading the repository. Run checks appropriate to the change:
 ```sh
