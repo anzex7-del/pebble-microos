@@ -24,6 +24,10 @@ Uses the board's 2.4 GHz station interface. Captive-portal login and enterprise/
 
 A remembered credential is stored in device KV using the application key. This is convenience storage, not protection against an attacker with firmware/physical access. Passwords are not sent to Pet Studio, a repository, BLE or a cloud account. Internet time sends a standard unauthenticated NTP request to `time.cloudflare.com` on UDP port 123. Network/DNS/NTP failures leave manual and companion time available.
 
+## Send a design over USB
+
+Plug a data cable into a running Pebble, close the flashing tool and serial monitor, and open Pet Studio in desktop Chrome or Edge. Choose **Connect via USB**, select the WCH/CH342 download channel (port A), then **Send this design**. The Studio confirms each design setting after the firmware applies it. If the board restarts when the port opens, wait for Home and reconnect. The second serial channel carries diagnostic logs. Bluetooth remains available for designs, pats and clock sync.
+
 ## Send a pet from Studio
 
 1. Install a successful **0.3** firmware build; earlier firmware does not support this protocol.

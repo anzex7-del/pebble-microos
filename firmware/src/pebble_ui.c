@@ -1,6 +1,7 @@
 /* Retained LVGL controls: navigation rebuilds a page; interactions update it in place. */
 #include "pebble.h"
 #include "pebble_profile.h"
+#include "pebble_usb.h"
 #include "pebble_services.h"
 #include "lvgl.h"
 #include "tal_api.h"
@@ -15,7 +16,7 @@ static pb_preferences preferences;
 static pb_controls_settings controls;
 static uint8_t requested_brightness;
 static bool brightness_pending, brightness_failed;
-static lv_obj_t *die, *pips[9], *name_input;
+static lv_obj_t *die, *pips[9];
 static unsigned die_result = 1, die_frame;
 static uint32_t roll_started;
 static bool rolling;
@@ -26,7 +27,10 @@ static bool stopwatch_running, redraw=true, first_frame=true, motion=true;
 static uint32_t last_tick, last_save, last_refresh, last_face, stopwatch_ms, breath_ms, mood_until;
 static lv_obj_t *root, *title, *live, *sub, *status_label, *aux_label, *cells[9], *actions[5], *bars[3];
 static lv_obj_t *pet_group, *pet_body, *pet_eyes[2], *pet_glints[2], *pet_blush[2], *pet_mouth, *pet_extra;
-static lv_obj_t *ssid_input, *password_input, *remember_box, *keyboard;
+static lv_obj_t *ssid_input, *password_input, *remember_box;
+enum edit_field { EDIT_SSID, EDIT_PASSWORD, EDIT_NAME };
+static enum edit_field editing;
+static lv_obj_t *editor, *editor_input, *editor_hint, *keyboard;
 static char selected_ssid[33];
 static unsigned listed_count;
 static bool listed_scanning;
@@ -48,18 +52,22 @@ static lv_obj_t *label(const char *text,int x,int y,int w) { return label_at(roo
 static lv_obj_t *small(const char *text,int x,int y,int w) { return label_at(root,text,x,y,w,&lv_font_montserrat_16,0xabb7aa); }
 static void head(const char *name) { title=label(name,85,47,296); }
 static void nav(lv_event_t *e) { requested_page=(int)(intptr_t)lv_event_get_user_data(e); }
-static lv_obj_t *button(const char *text,int x,int y,int w,int h,lv_event_cb_t callback,int value) {
-    lv_obj_t *o=lv_button_create(root); lv_obj_set_pos(o,x,y); lv_obj_set_size(o,w,h);
+static lv_obj_t *button_in(lv_obj_t *parent,const char *text,int x,int y,int w,int h,lv_event_cb_t callback,int value) {
+    lv_obj_t *o=lv_button_create(parent); lv_obj_set_pos(o,x,y); lv_obj_set_size(o,w,h);
     lv_obj_set_style_bg_color(o,lv_color_hex(0x243029),0); lv_obj_set_style_bg_color(o,lv_color_hex(0x465744),LV_STATE_PRESSED);
     lv_obj_set_style_radius(o,17,0); lv_obj_set_style_shadow_width(o,0,0); lv_obj_set_style_border_width(o,0,0);
     lv_obj_t *l=lv_label_create(o); lv_label_set_text(l,text); lv_obj_set_style_text_font(l,&lv_font_montserrat_20,0); lv_obj_center(l);
     lv_obj_add_event_cb(o,callback,LV_EVENT_CLICKED,(void *)(intptr_t)value); return o;
+}
+static lv_obj_t *button(const char *text,int x,int y,int w,int h,lv_event_cb_t callback,int value) {
+    return button_in(root,text,x,y,w,h,callback,value);
 }
 static void primary(lv_obj_t *o) { lv_obj_set_style_bg_color(o,lv_color_hex(accent()),0); lv_obj_set_style_text_color(o,lv_color_hex(0x15221b),0); }
 static void back(int target) { button("Back",173,385,120,44,nav,target); }
 static void save_pet(void) { pb_services_save(&s,&preferences,&controls); }
 static void care(lv_event_t *e) {
     int action=(int)(intptr_t)lv_event_get_user_data(e); pb_care(&s,(unsigned)action);
+    if (!controls.sound_muted) pb_services_sound(action);
     mood=action==0?1:action==1?2:0; mood_until=lv_tick_get()+2400; last_refresh=0; save_pet();
 }
 static void timer_set(lv_event_t *e) { pb_timer_start(&s,(uint32_t)(uintptr_t)lv_event_get_user_data(e)); last_refresh=0; }
@@ -144,12 +152,18 @@ static void handle_buttons(uint32_t now) {
 }
 static void theme(lv_event_t *e) { s.pet.theme=(uint8_t)(uintptr_t)lv_event_get_user_data(e); save_pet(); last_refresh=0; }
 static void motion_toggle(lv_event_t *e) { (void)e; motion=!motion; last_refresh=0; }
+static void sound_toggle(lv_event_t *e) {
+    (void)e;
+    controls.sound_muted = !controls.sound_muted;
+    pb_services_sound(controls.sound_muted ? -1 : 1);
+    save_pet();
+    last_refresh = 0;
+}
 static void save_click(lv_event_t *e) { (void)e; save_pet(); text_if_changed(status_label,"Save queued"); }
 static void wifi_scan(lv_event_t *e) { (void)e; pb_services_scan(); }
 static void wifi_off(lv_event_t *e) { (void)e; pb_services_wifi_off(); }
 static void wifi_forget(lv_event_t *e) { (void)e; pb_services_forget_wifi(); }
 static void choose_network(lv_event_t *e) { int i=(int)(intptr_t)lv_event_get_user_data(e); selected_ssid[0]=0; if(i>=0&&(unsigned)i<services.ap_count) snprintf(selected_ssid,sizeof(selected_ssid),"%s",services.aps[i].ssid); requested_page=WIFI_JOIN; }
-static void input_focus(lv_event_t *e) { if (keyboard) lv_keyboard_set_textarea(keyboard,lv_event_get_target(e)); }
 static void connect_wifi(lv_event_t *e) {
     (void)e; bool remember=lv_obj_has_state(remember_box,LV_STATE_CHECKED);
     if(pb_services_connect(lv_textarea_get_text(ssid_input),lv_textarea_get_text(password_input),remember)) { lv_textarea_set_text(password_input,""); requested_page=WIFI; }
@@ -203,86 +217,136 @@ static void animate_pet(uint32_t now) {
     }
     text_if_changed(pet_extra,sleeping?"z z":reacting?(mood==1?"*":"+"):"");
 }
-static lv_obj_t *text_field(int y, unsigned length, const char *hint) {
-    lv_obj_t *field = lv_textarea_create(root);
+static lv_obj_t *text_field(lv_obj_t *parent, int y, unsigned length, const char *hint) {
+    lv_obj_t *field = lv_textarea_create(parent);
     lv_textarea_set_one_line(field, true);
     lv_textarea_set_max_length(field, length);
     lv_textarea_set_placeholder_text(field, hint);
-    lv_obj_set_size(field, 276, 40);
+    lv_obj_set_size(field, 276, 44);
     lv_obj_set_pos(field, 95, y);
     lv_obj_set_style_pad_ver(field, 5, 0);
-    lv_obj_add_event_cb(field, input_focus, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(field, input_focus, LV_EVENT_FOCUSED, NULL);
     return field;
 }
-static void make_keyboard(lv_obj_t *field) {
-    keyboard = lv_keyboard_create(root);
-    /* Include every printable ASCII symbol for network names and passwords. */
-    static const char *symbols[] = {
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", LV_SYMBOL_BACKSPACE, "\n",
-        "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "\n",
-        "-", "_", "=", "+", "[", "]", "{", "}", "|", "\\", "\n",
-        ";", ":", "'", "\"", ",", ".", "<", ">", "/", "?", "\n",
-        "abc", "`", "~", " ", LV_SYMBOL_LEFT, LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""
-    };
-    static const lv_buttonmatrix_ctrl_t widths[] = {
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        2, 1, 1, 4, 2, 2, 2,
-    };
-    lv_keyboard_set_map(keyboard, LV_KEYBOARD_MODE_SPECIAL, symbols, widths);
-    lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
-    lv_obj_set_size(keyboard, 392, 162);
-    lv_obj_align(keyboard, LV_ALIGN_TOP_MID, 0, 165);
-    lv_obj_set_style_pad_all(keyboard, 2, 0);
-    lv_obj_set_style_pad_column(keyboard, 2, 0);
-    lv_obj_set_style_pad_row(keyboard, 3, 0);
-    lv_obj_set_style_text_font(keyboard, &lv_font_montserrat_16, LV_PART_ITEMS);
-    lv_keyboard_set_textarea(keyboard, field);
+
+/* Split QWERTY horizontally to keep every row within six finger targets. */
+enum key_page { LEFT_LOWER, RIGHT_LOWER, LEFT_UPPER, RIGHT_UPPER, NUMBERS, SYMBOLS_A, SYMBOLS_B };
+static enum key_page key_page;
+static const char *key_maps[][27] = {
+    [LEFT_LOWER] = {"q","w","e","r","t", LV_SYMBOL_BACKSPACE,"\n","a","s","d","f","g","\n","z","x","c","v","b","\n",
+                    "ABC","Y-P","123","Space",LV_SYMBOL_LEFT,LV_SYMBOL_RIGHT,""},
+    [RIGHT_LOWER] = {"y","u","i","o","p", LV_SYMBOL_BACKSPACE,"\n","h","j","k","l","\n","n","m","\n",
+                     "ABC","Q-T","123","Space",LV_SYMBOL_LEFT,LV_SYMBOL_RIGHT,""},
+    [LEFT_UPPER] = {"Q","W","E","R","T", LV_SYMBOL_BACKSPACE,"\n","A","S","D","F","G","\n","Z","X","C","V","B","\n",
+                    "abc","Y-P","123","Space",LV_SYMBOL_LEFT,LV_SYMBOL_RIGHT,""},
+    [RIGHT_UPPER] = {"Y","U","I","O","P", LV_SYMBOL_BACKSPACE,"\n","H","J","K","L","\n","N","M","\n",
+                     "abc","Q-T","123","Space",LV_SYMBOL_LEFT,LV_SYMBOL_RIGHT,""},
+    [NUMBERS] = {"1","2","3","4","5", LV_SYMBOL_BACKSPACE,"\n","6","7","8","9","0","\n","!","@","#","$","%","\n",
+                 "abc","2/3 >","Space",LV_SYMBOL_LEFT,LV_SYMBOL_RIGHT,""},
+    [SYMBOLS_A] = {"^","&","*","(",")", LV_SYMBOL_BACKSPACE,"\n","-","_","=","+","[","]","\n","{","}","|","\\",";","\n",
+                   "abc","3/3 >","Space",LV_SYMBOL_LEFT,LV_SYMBOL_RIGHT,""},
+    [SYMBOLS_B] = {":","'","\"",",",".", LV_SYMBOL_BACKSPACE,"\n","<",">","/","?","`","~","\n",
+                   "abc","1/3 >","\n","Space",LV_SYMBOL_LEFT,LV_SYMBOL_RIGHT,""}
+};
+static void select_key_page(enum key_page next) {
+    key_page = next;
+    lv_buttonmatrix_set_map(keyboard, key_maps[next]);
+    lv_buttonmatrix_set_button_ctrl_all(keyboard, LV_BUTTONMATRIX_CTRL_NO_REPEAT | LV_BUTTONMATRIX_CTRL_CLICK_TRIG);
 }
-static void leave_editor(lv_event_t *e) {
+static void key_pressed(lv_event_t *e) {
+    lv_obj_t *matrix = lv_event_get_target(e);
+    const char *key = lv_buttonmatrix_get_button_text(matrix, lv_buttonmatrix_get_selected_button(matrix));
+    if (!key) return;
+    if (!strcmp(key,"Y-P")) select_key_page(key_page == LEFT_UPPER ? RIGHT_UPPER : RIGHT_LOWER);
+    else if (!strcmp(key,"Q-T")) select_key_page(key_page == RIGHT_UPPER ? LEFT_UPPER : LEFT_LOWER);
+    else if (!strcmp(key,"ABC")) select_key_page(key_page == RIGHT_LOWER ? RIGHT_UPPER : LEFT_UPPER);
+    else if (!strcmp(key,"abc")) select_key_page(key_page == RIGHT_UPPER ? RIGHT_LOWER : LEFT_LOWER);
+    else if (!strcmp(key,"123") || !strcmp(key,"1/3 >")) select_key_page(NUMBERS);
+    else if (!strcmp(key,"2/3 >")) select_key_page(SYMBOLS_A);
+    else if (!strcmp(key,"3/3 >")) select_key_page(SYMBOLS_B);
+    else if (!strcmp(key,LV_SYMBOL_BACKSPACE)) lv_textarea_delete_char(editor_input);
+    else if (!strcmp(key,LV_SYMBOL_LEFT)) lv_textarea_cursor_left(editor_input);
+    else if (!strcmp(key,LV_SYMBOL_RIGHT)) lv_textarea_cursor_right(editor_input);
+    else lv_textarea_add_text(editor_input, !strcmp(key,"Space") ? " " : key);
+}
+static void open_editor(enum edit_field field);
+static void close_editor(void) {
+    lv_obj_delete(editor);
+    editor = editor_input = editor_hint = keyboard = NULL;
+}
+static void cancel_editor(lv_event_t *e) {
     (void)e;
-    requested_page = page == RENAME ? SETTINGS : WIFI;
+    if (editing == EDIT_NAME) requested_page = SETTINGS;
+    else close_editor();
 }
-static void wifi_ready(lv_event_t *e) {
-    if (lv_event_get_target(e) == ssid_input) lv_keyboard_set_textarea(keyboard, password_input);
-    else connect_wifi(e);
+static void finish_editor(lv_event_t *e) {
+    (void)e;
+    const char *value = lv_textarea_get_text(editor_input);
+    if (editing == EDIT_NAME) {
+        uint8_t data[17] = {'N'};
+        size_t len = strlen(value);
+        pb_command parsed;
+        if (len <= 16) memcpy(data + 1, value, len);
+        if (len > 16 || !pb_command_parse(data, len + 1, &parsed)) {
+            text_if_changed(editor_hint, "Start with a letter/digit. No end spaces.");
+            return;
+        }
+        snprintf(preferences.name, sizeof(preferences.name), "%s", parsed.name);
+        save_pet();
+        requested_page = SETTINGS;
+    } else {
+        bool next = editing == EDIT_SSID;
+        lv_textarea_set_text(next ? ssid_input : password_input, value);
+        close_editor();
+        if (next) open_editor(EDIT_PASSWORD);
+    }
+}
+static void open_editor(enum edit_field field) {
+    if (editor) return;
+    editing = field;
+    editor = shape(root,0,0,466,466,0,0x0b1410);
+    lv_obj_add_flag(editor,LV_OBJ_FLAG_CLICKABLE);
+    const char *caption = field == EDIT_NAME ? "Pet name" : field == EDIT_PASSWORD ? "Password" : "Network name";
+    label_at(editor, caption, 86, 39, 294, &lv_font_montserrat_20, 0xf3f3ed);
+    editor_input = text_field(editor, 75, field == EDIT_NAME ? 16 : field == EDIT_PASSWORD ? 64 : 32, caption);
+    lv_textarea_set_password_mode(editor_input, field == EDIT_PASSWORD);
+    lv_textarea_set_text(editor_input, field == EDIT_NAME ? preferences.name :
+                         lv_textarea_get_text(field == EDIT_PASSWORD ? password_input : ssid_input));
+    keyboard = lv_buttonmatrix_create(editor);
+    lv_obj_set_pos(keyboard, 47, 126);
+    lv_obj_set_size(keyboard, 372, 220);
+    lv_obj_set_style_pad_all(keyboard, 2, 0);
+    lv_obj_set_style_pad_column(keyboard, 3, 0);
+    lv_obj_set_style_pad_row(keyboard, 3, 0);
+    lv_obj_set_style_text_font(keyboard, &lv_font_montserrat_20, LV_PART_ITEMS);
+    select_key_page(LEFT_LOWER);
+    lv_obj_add_event_cb(keyboard, key_pressed, LV_EVENT_VALUE_CHANGED, NULL);
+    editor_hint = label_at(editor, field == EDIT_NAME ? "Letters, digits, spaces, - or _" :
+                           field == EDIT_PASSWORD ? "Leave blank for an open network" : "",
+                           58,349,350,&lv_font_montserrat_16,0xabb7aa);
+    const char *done = field == EDIT_NAME ? "Save" : field == EDIT_SSID ? "Next" : "Done";
+    primary(button_in(editor,done,109,376,118,44,finish_editor,0));
+    button_in(editor,"Cancel",239,376,118,44,cancel_editor,0);
+}
+static void edit_network_field(lv_event_t *e) {
+    open_editor(lv_event_get_target(e) == ssid_input ? EDIT_SSID : EDIT_PASSWORD);
 }
 static void make_wifi_form(void) {
     head("Join Wi-Fi");
-    ssid_input = text_field(75, 32, "Network name");
+    ssid_input = text_field(root, 112, 32, "Network name");
     lv_textarea_set_text(ssid_input, selected_ssid);
-    password_input = text_field(119, 64, "Password (blank if open)");
+    password_input = text_field(root, 183, 64, "Password (blank if open)");
     lv_textarea_set_password_mode(password_input, true);
-    make_keyboard(selected_ssid[0] ? password_input : ssid_input);
-    lv_obj_add_event_cb(ssid_input, wifi_ready, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(password_input, wifi_ready, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(keyboard, leave_editor, LV_EVENT_CANCEL, NULL);
-    remember_box=lv_checkbox_create(root); lv_obj_set_pos(remember_box,105,335); lv_checkbox_set_text(remember_box,"Remember on this device"); lv_obj_set_style_text_font(remember_box,&lv_font_montserrat_16,0);
-    primary(button("Connect",109,370,118,44,connect_wifi,0)); button("Cancel",239,370,118,44,nav,WIFI);
-}
-static void save_name(lv_event_t *e) {
-    (void)e;
-    const char *name = lv_textarea_get_text(name_input);
-    uint8_t data[17] = {'N'};
-    size_t len = strlen(name);
-    pb_command parsed;
-    if (len <= 16) memcpy(data + 1, name, len);
-    if (len > 16 || !pb_command_parse(data, len + 1, &parsed)) {
-        text_if_changed(sub, "Start with a letter or digit. No end spaces.");
-        return;
-    }
-    snprintf(preferences.name, sizeof(preferences.name), "%s", parsed.name);
-    save_pet();
-    requested_page = SETTINGS;
+    lv_obj_add_event_cb(ssid_input, edit_network_field, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(password_input, edit_network_field, LV_EVENT_CLICKED, NULL);
+    remember_box=lv_checkbox_create(root); lv_obj_set_pos(remember_box,105,265); lv_checkbox_set_text(remember_box,"Remember on this device"); lv_obj_set_style_text_font(remember_box,&lv_font_montserrat_16,0);
+    primary(button("Connect",109,356,118,48,connect_wifi,0)); button("Cancel",239,356,118,48,nav,WIFI);
+    open_editor(selected_ssid[0] ? EDIT_PASSWORD : EDIT_SSID);
 }
 static void render(void) {
     live=sub=status_label=aux_label=title=pet_group=pet_body=pet_mouth=pet_extra=NULL;
     memset(cells,0,sizeof(cells)); memset(actions,0,sizeof(actions)); memset(bars,0,sizeof(bars));
     cached_eyes=cached_love=cached_theme=-1; cached_target=-2;
-    keyboard = NULL;
+    editor = editor_input = editor_hint = keyboard = NULL;
     rolling = false;
     lv_obj_clean(root); lv_obj_set_style_bg_color(root,lv_color_hex(0x0b1410),0); lv_obj_set_style_text_font(root,&lv_font_montserrat_20,0);
     char b[100];
@@ -329,18 +393,10 @@ static void render(void) {
         head("Make it yours"); const char *colors[]={"Moss","Sky","Peach","Lilac"}; for(int i=0;i<4;i++) cells[i]=button(colors[i],85+i%2*154,89+i/2*58,144,48,theme,i);
         actions[0]=button("Motion on",85,205,144,48,motion_toggle,0); button("Save pet",239,205,144,48,save_click,0);
         button("Rename",85,264,144,48,nav,RENAME); button("Controls",239,264,144,48,nav,DEVICE);
-        status_label=small("",67,329,332); back(APPS); break;
+        actions[1]=button("",128,317,210,43,sound_toggle,0);
+        status_label=small("",88,364,290); back(APPS); break;
     }
-    case RENAME:
-        head("Pet name");
-        name_input = text_field(112, 16, "Pet name");
-        lv_textarea_set_text(name_input, preferences.name);
-        make_keyboard(name_input);
-        lv_obj_add_event_cb(name_input, save_name, LV_EVENT_READY, NULL);
-        lv_obj_add_event_cb(keyboard, leave_editor, LV_EVENT_CANCEL, NULL);
-        sub=small("Up to 16 letters, digits, spaces, - or _",55,336,356);
-        primary(button("Save",109,370,118,44,save_name,0)); button("Cancel",239,370,118,44,nav,SETTINGS);
-        break;
+    case RENAME: open_editor(EDIT_NAME); break;
     case DEVICE:
         head("Device controls");
         live = label("", 100, 94, 266);
@@ -398,7 +454,7 @@ static void refresh(uint32_t now) {
     case STOPWATCH: { unsigned sec=stopwatch_ms/1000; snprintf(b,sizeof(b),"%02u:%02u.%u",sec/60,sec%60,(unsigned)(stopwatch_ms/100)%10); text_if_changed(live,b); button_text(actions[0],stopwatch_running?"Pause":"Start"); break; }
     case BREATHE: text_if_changed(live,breath_ms%14000<4000?"Breathe in":breath_ms%14000<8000?"Hold gently":"Breathe out"); break;
     case SETTINGS:
-        if(cached_theme!=s.pet.theme) { for(int i=0;i<4;i++) { lv_obj_set_style_bg_color(cells[i],lv_color_hex(s.pet.theme==i?accent():0x243029),0); lv_obj_set_style_text_color(cells[i],lv_color_hex(s.pet.theme==i?0x15221b:0xf3f3ed),0); } cached_theme=s.pet.theme; } button_text(actions[0],motion?"Motion on":"Motion off"); text_if_changed(status_label,services.save_ok?"Pet saved locally":"Save unavailable / session only"); break;
+        if(cached_theme!=s.pet.theme) { for(int i=0;i<4;i++) { lv_obj_set_style_bg_color(cells[i],lv_color_hex(s.pet.theme==i?accent():0x243029),0); lv_obj_set_style_text_color(cells[i],lv_color_hex(s.pet.theme==i?0x15221b:0xf3f3ed),0); } cached_theme=s.pet.theme; } button_text(actions[0],motion?"Motion on":"Motion off"); button_text(actions[1],controls.sound_muted?"Pet sounds: Off":"Pet sounds: On"); text_if_changed(status_label,services.sound_failed && !controls.sound_muted?"Speaker unavailable":services.save_ok?"Pet saved locally":"Save unavailable / session only"); break;
     case DEVICE:
         snprintf(b, sizeof(b), brightness_failed ? "Brightness unavailable" : "Brightness %u%%", (unsigned)requested_brightness);
         text_if_changed(live, b);
@@ -420,7 +476,7 @@ static void refresh(uint32_t now) {
 }
 static void command_apply(const pb_command *command) {
     switch(command->kind) {
-    case 'P': pb_care(&s,1); mood=2; mood_until=lv_tick_get()+2400; break;
+    case 'P': if (!controls.sound_muted) pb_services_sound(1); pb_care(&s,1); mood=2; mood_until=lv_tick_get()+2400; break;
     case 'N': snprintf(preferences.name,sizeof(preferences.name),"%s",command->name); break;
     case 'C': s.pet.theme=(uint8_t)command->value; if(page==HOME) redraw=true; break;
     case 'E': preferences.eyes=(uint8_t)command->value; break;
@@ -429,12 +485,14 @@ static void command_apply(const pb_command *command) {
     case 'T': pb_services_set_time((uint64_t)command->value,true); break;
     default: return;
     }
-    last_refresh=0; save_pet(); pb_services_reply(command);
+    last_refresh=0; save_pet();
 }
 static void tick(lv_timer_t *timer) {
     (void)timer; uint32_t now=lv_tick_get(), dt=now-last_tick; last_tick=now;
     pb_tick(&s,dt); breath_ms+=dt; if(stopwatch_running) stopwatch_ms+=dt;
-    pb_services_snapshot(&services); pb_command command; if(pb_services_next_command(&command)) command_apply(&command);
+    pb_services_snapshot(&services); pb_command command;
+    if (pb_services_next_command(&command)) { command_apply(&command); pb_services_reply(&command); }
+    pb_usb_apply_pending(command_apply);
     handle_buttons(now);
     if(requested_page!=page) { page=requested_page; redraw=true; if(page==BREATHE) breath_ms=0; if(page==CLOCK_SET&&services.clock_valid) { char t[9],d[24]; pb_clock_text(services.epoch,preferences.timezone_minutes,t,d); manual_hour=(t[0]-'0')*10+t[1]-'0'; manual_minute=(t[3]-'0')*10+t[4]-'0'; } }
     if(page==WIFI&&(listed_count!=services.ap_count||listed_scanning!=services.scanning)) redraw=true;

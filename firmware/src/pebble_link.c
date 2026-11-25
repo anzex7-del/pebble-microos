@@ -2,6 +2,21 @@
 #include <stdio.h>
 #include <string.h>
 
+/* LF terminates a frame. After any bad byte or overflow, discard the whole
+ * frame so its suffix cannot be mistaken for another command. */
+bool pb_usb_line_feed(pb_usb_line *line, uint8_t byte) {
+    if (byte == '\n') {
+        bool complete = !line->discard && line->length > 0;
+        line->text[line->length] = 0;
+        line->length = 0;
+        line->discard = false;
+        return complete;
+    }
+    if (byte < 32 || byte > 126 || line->length >= sizeof(line->text) - 1) line->discard = true;
+    if (!line->discard) line->text[line->length++] = (char)byte;
+    return false;
+}
+
 bool pb_command_parse(const uint8_t *data, size_t len, pb_command *out) {
     if (!data || !out || !len || len > PB_LINK_MAX) return false;
     pb_command c = {0}; c.kind = (char)data[0];

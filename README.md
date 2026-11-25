@@ -60,7 +60,8 @@ Read [hardware and build instructions](docs/HARDWARE_AND_BUILD.md) before any ph
 | Persistence | Browser local storage | Versioned CRC save + Tuya KV adapter, untested on flash |
 | Screen rest | Dark preview | Black screen only; not deep sleep |
 | Wi-Fi / BLE | Studio BLE settings bridge; no radio simulation | Station connection / companion service; hardware testing pending |
-| Sound, IMU motion, battery percentage, OTA | Not simulated as working | Not implemented |
+| Pet sounds | Device only | Feed, Pat and Nap/Wake chirps with a saved mute setting; physical playback pending |
+| IMU motion, battery percentage, OTA | Not simulated as working | Not implemented |
 
 Browser and native UI are separate implementations. Matching core behaviors have tests in both; this is not a pixel-identical emulator of the firmware. Progress is not synchronized between the browser and hardware.
 

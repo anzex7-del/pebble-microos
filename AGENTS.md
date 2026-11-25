@@ -7,10 +7,10 @@ Repository: https://github.com/anzex7-del/pebble-microos
 Pet Studio: https://anzex7-del.github.io/pebble-microos/
 Simulator: https://anzex7-del.github.io/pebble-microos/demo/
 
-## Current delivery
-- Version: **0.3.0-preview.1**, firmware release **preview-build-8**.
-- Download: https://github.com/anzex7-del/pebble-microos/releases/tag/preview-build-8
-- Successful exact-target build: Actions run **45166609546**, source **6391194d0db93328e396ee219d74a3310ab9491a**.
+## Delivery and device feedback
+- Preview version **0.3.0-preview.1**. The latest numbered binary is on [GitHub Releases](https://github.com/anzex7-del/pebble-microos/releases). The owner tested build 8 and reported small keys.
+- Build 8 baseline: https://github.com/anzex7-del/pebble-microos/releases/tag/preview-build-8
+- Build 8 exact-target run: Actions run **45166609546**, source **6391194d0db93328e396ee219d74a3310ab9491a**.
 - Flash file: **pebble_microos_QIO_1.0.0.bin**. The SDK filename suffix is not the app version.
 - The owner saw display glitches on taps and during animation before build 7. Build 7 aligns cropped redraws to the CO5300’s 2×2 pixel grid. A host check covered every in-bounds start/end pair on both axes. Physical confirmation is pending.
 
@@ -18,7 +18,7 @@ Build 8 adds QWERTY entry for Wi-Fi and pet names, saved AMOLED brightness and i
 
 Implemented: retained LVGL controls; background flash/network worker; cropped display updates; animated bunny; Wi-Fi scan/join/optional remember/forget; three-minute BLE Studio link for design, pats and time; internet/computer/manual clock with UTC+4 default.
 
-Clock loses time on cold boot until resynced. Hardware RTC, deep sleep, battery readings, sound and OTA remain pending. BLE is a settings bridge, not audio; it has no authenticated ownership during the enabled window.
+Clock loses time on cold boot until resynced. Hardware RTC, deep sleep, battery readings and OTA remain pending. Pet sounds use the speaker socket. BLE is a settings bridge, not audio; it has no authenticated ownership during the enabled window.
 
 ## Where to work
 - `firmware/src/pebble_ui.c`: native UI and pet animation.
@@ -30,13 +30,13 @@ Clock loses time on cold boot until resynced. Hardware RTC, deep sleep, battery 
 - TuyaOpen pinned at `cc6b7cdc35f0168186859c02b4979e9580b3a760`.
 
 ## Next step
-On build 8, try keyboard entry, change brightness and each shortcut, then reboot to check the settings. Roll the die and repeat the taps and animations that previously glitched. Wi-Fi join/time sync and BLE design/time/pat, reconnect and expiry still need device feedback. Do not describe an untested feature as hardware-validated.
+For the keyboard, sound and USB update, verify the larger keys on the round display, each care chirp and mute across reboot, then apply a design through USB channel A. Roll the die and repeat the taps and animations that previously glitched. Wi-Fi join/time sync and BLE design/time/pat, reconnect and expiry still need device feedback. Do not describe an untested feature as hardware-validated.
 
 Studio desktop/mobile layouts and reactions were checked. After the Pages asset fingerprinting change (`c2aa823`), a live Edge check of `studio.js?v=5e8693f66d74` exported 1080×1350 PNGs for Moss/Happy and Lilac/Loved. Both showed the bunny’s inner ear and cream belly, with the selected body color and reaction-specific cheeks. Core sanitizer tests, eight Python tests and mocked browser/BLE tests passed in their respective local/CI checks.
 
 ## Agent workflow
 
-The coordinator uses the project roles in `.codex/agents/` for Pebble development. Wait for the owner's build 8 hardware feedback before the next firmware change.
+The coordinator uses the project roles in `.codex/agents/` for Pebble development. The owner reported that the build 8 keyboard was too small and requested larger keys, speaker reactions and USB personalization. GPS/Find My work is deferred at the owner's request.
 
 1. For UI work, ask `ui_designer` for a proposal scoped to the affected UI files, with observable acceptance criteria. An explicit owner request approves that improvement. Bring new proposals to the owner before implementation.
 2. Give `feature_developer` one approved improvement at a time. Prepare the change away from main so the full diff is available before a merge or release.

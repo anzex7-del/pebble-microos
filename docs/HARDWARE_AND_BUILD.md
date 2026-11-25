@@ -87,7 +87,9 @@ Touch polling is 16 ms and the display refresh target is 33 ms; these are config
 
 In **Apps → Style → Controls**, use **Dimmer** and **Brighter** to adjust the AMOLED from 10% to 100%. Tap **PWR** or **KEY** to cycle its short-press action through Off, Home, Apps, Clock and Dice. PWR starts at Home and KEY at Apps. Holding PWR for three seconds invokes the board’s power-off function. Brightness and shortcuts save automatically with the existing delayed settings save.
 
-**Style → Rename** and the Wi-Fi join form share an on-screen QWERTY keyboard. Tap **ABC** for capitals or **1#** for numbers and symbols. In **Apps → Tools → Dice**, the die bounces through several faces and settles on the result. Turning motion off in Style shows the final face immediately.
+**Style → Rename** and the Wi-Fi join form share an on-screen QWERTY keyboard. Tap **Y-P** or **Q-T** to switch between the two halves, **ABC** for capitals, or **123** for numbers and symbols. On the Wi-Fi form, **Next** accepts the network name, **Done** accepts the password and **Connect** starts the connection. In **Apps → Tools → Dice**, the die bounces through several faces and settles on the result. Turning motion off in Style shows the final face immediately.
+
+**Apps → Style → Pet sounds** mutes or enables the short speaker reactions for Feed, Pat and Nap/Wake. Turning sound on previews a chirp. Pebble queues audio outside the touch thread. A delayed chirp expires so a Wi-Fi scan does not produce a burst of old sounds.
 
 ## Device acceptance checklist
 
@@ -107,7 +109,7 @@ In **Apps → Style → Controls**, use **Dimmer** and **Brighter** to adjust th
 | Battery | Confirm approved chemistry, capacity and polarity; measure charge behavior and enclosure temperature |
 | RTC/timer | After implementation, correct elapsed time across sleep, reboot and time changes |
 | Inputs | Physical back/wake/long-press escape mapped and tested before carry use |
-| Audio | After implementation, confirm volume/mute and completion tone without clipping |
+| Audio | Confirm Feed, Pat and Nap/Wake chirps, mute after reboot and clear playback without clipping |
 | Release | Reproducible build, version label, checksums, factory recovery and support instructions |
 
-Motion, RTC, audio, battery measurement and hardware sleep are board capabilities, but are not implemented application features in this alpha. Core functions are useful now; these integrations determine whether it is ready to carry or sell.
+IMU motion, RTC, battery measurement and hardware sleep are board capabilities, but are not implemented application features in this alpha. Core functions are useful now; these integrations determine whether it is ready to carry or sell.

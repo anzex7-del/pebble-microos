@@ -78,7 +78,15 @@
   const deviceButtons=[$('send-pet'),$('sync-clock'),$('pat-device'),$('disconnect-pet')];
   let transferring=false;
   const companion=PebbleCompanion.createClient(navigator.bluetooth,()=>{linkStatus.textContent='Disconnected. Enable Bluetooth on your Pebble to reconnect.'; updateLink();});
-  function updateLink() { const online=companion.connected(); deviceButtons.forEach(b=>b.disabled=!online||transferring); connectButton.disabled=transferring||online||!navigator.bluetooth; }
+  const usbButton = $('connect-usb');
+  const usb = createPebbleUsb(navigator.serial, () => { linkStatus.textContent='USB disconnected.'; updateLink(); });
+  function updateLink() {
+    const bluetooth = companion.connected(), online = bluetooth || usb.connected();
+    deviceButtons.forEach(b => b.disabled = !online || transferring);
+    $('sync-clock').disabled = $('pat-device').disabled = !bluetooth || transferring;
+    connectButton.disabled = transferring || online || !navigator.bluetooth;
+    usbButton.disabled = transferring || online || !navigator.serial;
+  }
   async function transfer(action,success) {
     transferring=true; updateLink();
     try { await action(); linkStatus.textContent=success; notice(success); }
@@ -86,11 +94,15 @@
     finally { transferring=false; updateLink(); }
   }
   connectButton.addEventListener('click',()=>transfer(async()=>{linkStatus.textContent='Choose Pebble in the Bluetooth dialog…'; await companion.connect();},'Connected to Pebble. Choose what to send.'));
-  $('send-pet').addEventListener('click',()=>transfer(async()=>{profile=fromForm();update();await companion.send(PebbleCompanion.profileCommands(profile),(done,total)=>{linkStatus.textContent=`Sending your design: ${done}/${total} confirmed…`;});},'Design applied on Pebble. Wait two seconds before switching it off.'));
+  usbButton.addEventListener('click', () => transfer(async () => {
+    linkStatus.textContent = 'Choose the USB download port (A)…';
+    await usb.connect();
+  }, 'Connected to Pebble over USB. Choose Send this design.'));
+  $('send-pet').addEventListener('click',()=>transfer(async()=>{profile=fromForm();update();await (usb.connected() ? usb : companion).send(PebbleCompanion.profileCommands(profile),(done,total)=>{linkStatus.textContent=`Sending your design: ${done}/${total} confirmed…`;});},'Design applied on Pebble. Wait two seconds before switching it off.'));
   $('sync-clock').addEventListener('click',()=>transfer(()=>companion.send(PebbleCompanion.clockCommands()),'Clock and timezone synced from this computer.'));
   $('pat-device').addEventListener('click',()=>transfer(()=>companion.send(['P']),'A little pat, delivered.'));
-  $('disconnect-pet').addEventListener('click',()=>{companion.disconnect();linkStatus.textContent='Disconnected. You can turn Bluetooth off on your Pebble.';updateLink();});
-  if(!navigator.bluetooth) linkStatus.textContent='Open this page in Chrome or Edge to connect. Web Bluetooth is unavailable in this browser.';
+  $('disconnect-pet').addEventListener('click',async()=>{transferring=true; updateLink(); try { if(usb.connected()) await usb.disconnect(); else companion.disconnect(); linkStatus.textContent='Disconnected.'; } finally {transferring=false; updateLink();}});
+  if(!navigator.bluetooth && !navigator.serial) linkStatus.textContent='Open Pet Studio in desktop Chrome or Edge to connect.';
   updateLink();
   fillForm();syncReactions();requestAnimationFrame(frame);
 })();

@@ -1,6 +1,8 @@
 /* Radio and flash work never runs in the LVGL input/render thread. */
 #include "pebble_services.h"
 #include "pebble_profile.h"
+#include "pebble_sound.h"
+#include <stddef.h>
 #include "tal_api.h"
 #include "tal_wifi.h"
 #include "tal_bluetooth.h"
@@ -19,7 +21,8 @@ static unsigned queue_head, queue_count;
 static pb_command queue[8];
 static TAL_BLE_PEER_INFO_T peer;
 static char pending_reply[21];
-static uint32_t save_tick;
+static uint32_t save_tick, sound_tick;
+static int pending_sound = -1;
 static uint8_t saved_pet[PB_SAVE_SIZE], previous_pet[PB_SAVE_SIZE];
 static pb_preferences saved_preferences, previous_preferences;
 static pb_controls_settings saved_controls, previous_controls;
@@ -80,6 +83,10 @@ void pb_services_save(const pb_state *state, const pb_preferences *preferences, 
     if(!lock||!storage_ok) return;
     uint8_t data[PB_SAVE_SIZE]; pb_save(state,data);
     take(); memcpy(saved_pet,data,sizeof(data)); saved_preferences=*preferences; saved_controls=*controls; save_pending=true; save_tick=millis(); give();
+}
+void pb_services_sound(int reaction) {
+    if (!lock) return;
+    take(); pending_sound = reaction; sound_tick = millis(); give();
 }
 void pb_services_scan(void) { if(lock) { take(); scan_requested=true; status.wifi_on=true; status.scanning=true; give(); } }
 bool pb_services_connect(const char *ssid, const char *password, bool remember) {
@@ -190,12 +197,19 @@ static void run_services(void *arg) {
         uint32_t now;
         bool scan,join,off,forget,sync,save,remember; wifi_credentials next; pb_controls_settings controls; pb_preferences preferences; uint8_t pet[PB_SAVE_SIZE];
         take();
-        now=millis(); clock_ms+=(uint32_t)(now-clock_tick); clock_tick=now;
+        now=millis();
+        int sound = now - sound_tick < 400 ? pending_sound : -1;
+        pending_sound = -1;
+        clock_ms+=(uint32_t)(now-clock_tick); clock_tick=now;
         scan=scan_requested; scan_requested=false; join=join_requested; join_requested=false;
         off=off_requested; off_requested=false; forget=forget_requested; forget_requested=false;
         sync=sync_requested; sync_requested=false; save=save_pending && (uint32_t)(now-save_tick)>=1000; if(save) save_pending=false;
         next=pending_credentials; if(join) memset(pending_credentials.password,0,sizeof(pending_credentials.password)); remember=remember_pending; preferences=saved_preferences; controls=saved_controls; memcpy(pet,saved_pet,sizeof(pet));
         give();
+        if (sound >= 0) {
+            bool played = pb_sound_play((unsigned)sound);
+            take(); status.sound_failed = !played; give();
+        }
         if(save&&storage_ok) {
             bool ok=true;
             if(memcmp(pet,previous_pet,sizeof(pet))) { ok=(tal_kv_set("pebble.v1",pet,sizeof(pet))==OPRT_OK); if(ok) memcpy(previous_pet,pet,sizeof(pet)); }
@@ -258,11 +272,11 @@ void pb_services_init(pb_state *state, pb_preferences *preferences, pb_controls_
             tal_kv_free(data);
         }
         if (tal_kv_get("pebble.controls.v1", &data, &size) == OPRT_OK) {
-            pb_controls_settings loaded;
-            if (size == sizeof(loaded)) {
+            pb_controls_settings loaded = *controls;
+            if (size == sizeof(loaded) || size == offsetof(pb_controls_settings, sound_muted)) {
                 memcpy(&loaded, data, size);
                 if (loaded.brightness >= PB_BRIGHTNESS_MIN && loaded.brightness <= PB_BRIGHTNESS_MAX &&
-                    loaded.shortcut[PB_PWR] < PB_SHORTCUT_COUNT && loaded.shortcut[PB_KEY] < PB_SHORTCUT_COUNT)
+                    loaded.shortcut[PB_PWR] < PB_SHORTCUT_COUNT && loaded.shortcut[PB_KEY] < PB_SHORTCUT_COUNT && loaded.sound_muted <= 1)
                     *controls = loaded;
             }
             tal_kv_free(data);

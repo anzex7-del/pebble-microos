@@ -14,7 +14,7 @@ typedef struct {
 typedef struct { char ssid[33]; int rssi; } pb_ap;
 typedef struct {
     bool ready, wifi_on, wifi_connected, scanning, ble_enabled, ble_connected;
-    bool clock_valid, clock_dated, save_ok;
+    bool clock_valid, clock_dated, save_ok, sound_failed;
     uint64_t epoch;
     uint32_t generation, ble_seconds;
     unsigned ap_count;
@@ -25,6 +25,7 @@ typedef struct {
 void pb_services_init(pb_state *state, pb_preferences *preferences, pb_controls_settings *controls);
 void pb_services_snapshot(pb_services_status *out);
 void pb_services_save(const pb_state *state, const pb_preferences *preferences, const pb_controls_settings *controls);
+void pb_services_sound(int reaction);
 void pb_services_scan(void);
 bool pb_services_connect(const char *ssid, const char *password, bool remember);
 void pb_services_wifi_off(void);

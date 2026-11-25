@@ -35,6 +35,15 @@ int main(void) {
     assert(!pb_ntp_parse(packet,47,nonce,&epoch)); packet[24]^=1; assert(!pb_ntp_parse(packet,48,nonce,&epoch)); packet[24]^=1;
     packet[0]=0xe4; assert(!pb_ntp_parse(packet,48,nonce,&epoch)); packet[0]=0x23; assert(!pb_ntp_parse(packet,48,nonce,&epoch)); packet[0]=0x24;
     packet[1]=0; assert(!pb_ntp_parse(packet,48,nonce,&epoch)); packet[1]=16; assert(!pb_ntp_parse(packet,48,nonce,&epoch));
+    pb_usb_line usb = {0};
+    const char *wire = "PEBBLE HELLO 1\n";
+    for (size_t i=0; wire[i]; ++i) assert(pb_usb_line_feed(&usb, wire[i]) == (wire[i]=='\n'));
+    assert(!strcmp(usb.text, "PEBBLE HELLO 1"));
+    for (unsigned i=0; i<80; ++i) assert(!pb_usb_line_feed(&usb, 'X'));
+    assert(!pb_usb_line_feed(&usb, '\n'));
+    assert(!pb_usb_line_feed(&usb, 0));
+    assert(!pb_usb_line_feed(&usb, '\n'));
+    assert(!pb_usb_line_feed(&usb, 'Y') && pb_usb_line_feed(&usb, '\n'));
     puts("Clock, NTP validation, Wi-Fi credentials and BLE protocol tests passed.");
     return 0;
 }

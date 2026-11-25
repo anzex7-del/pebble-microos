@@ -12,6 +12,7 @@ enum { PB_BRIGHTNESS_MIN = 10, PB_BRIGHTNESS_MAX = 100 };
 typedef struct {
     uint8_t brightness;
     uint8_t shortcut[PB_BUTTON_COUNT];
+    uint8_t sound_muted;
 } pb_controls_settings;
 
 void pb_controls_init(void);

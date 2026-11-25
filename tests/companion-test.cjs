@@ -25,5 +25,6 @@ assert.throws(()=>link.clockCommands(new Date('2000-01-01')));
   const previous=writes.length;await assert.rejects(()=>client.send(['P','N'+'x'.repeat(30)]),/Invalid/);assert.equal(writes.length,previous);
   client.disconnect();assert.equal(client.connected(),false);
   await assert.rejects(()=>link.createClient(null).connect(),/Chrome or Edge/);
+  await require('./usb-test.cjs')();
   console.log('PASS: BLE settings encoding, GATT handshake, acknowledgments, rejection, timeout and disconnect');
 })().catch(error=>{console.error(error);process.exitCode=1;});
